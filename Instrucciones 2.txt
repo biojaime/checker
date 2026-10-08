@@ -1,0 +1,232 @@
+ACTUALIZACIÓN DOCENTE-DASHBOARD
+
+1. PARCIALES
+- Actualmente solo existen Parcial 1, 2 y 3.
+- Ampliar a:
+  Parcial 1
+  Parcial 2
+  Parcial 3
+  Parcial 4
+  Parcial 5
+  Parcial 6
+- Permitir agregar más en el futuro desde configuración.
+
+------------------------------------------------
+
+2. FILTRO POR GRUPO
+
+En Calificaciones NO mostrar todos los alumnos del grado.
+
+Nuevo flujo:
+
+Clase → Grupo → Parcial → Criterio
+
+Ejemplo:
+
+Biología (1°)
+↓
+1° A
+↓
+Parcial 1
+↓
+Examen
+
+Solo mostrar alumnos del grupo seleccionado.
+
+Leer grupos automáticamente desde Firebase.
+
+------------------------------------------------
+
+3. TAREAS POR PARCIAL
+
+Las tareas deben pertenecer obligatoriamente a:
+
+Clase
+Grupo
+Parcial
+
+Ejemplo:
+
+Biología
+1° A
+Parcial 1
+
+Crear:
+
+Tarea 1
+Tarea 2
+Tarea 3
+...
+
+Cada tarea tendrá:
+
+- Nombre
+- Fecha
+- Valor opcional
+- Observaciones
+
+------------------------------------------------
+
+4. CAPTURA DE TAREAS
+
+Al crear una tarea:
+
+Seleccionar:
+
+Clase
+Grupo
+Parcial
+
+Mostrar lista de alumnos.
+
+Registrar:
+
+✓ Entregó
+✓ No entregó
+
+o
+
+Calificación 0-10
+
+Guardar en Firebase.
+
+------------------------------------------------
+
+5. PROMEDIO AUTOMÁTICO DE TAREAS
+
+Si un criterio del parcial se llama:
+
+"Tareas"
+
+Entonces:
+
+Promedio(Tarea1,Tarea2,Tarea3...)
+
+= Calificación automática del criterio Tareas.
+
+No capturar dos veces.
+
+El sistema debe calcularlo automáticamente.
+
+------------------------------------------------
+
+6. BOLETAS
+
+Agregar menú:
+
+Boletas
+
+------------------------------------------------
+
+7. MOMENTOS
+
+Configurar:
+
+Momento 1
+Momento 2
+Momento 3
+
+Cada momento puede contener:
+
+1 o varios parciales.
+
+Ejemplo:
+
+Momento 1
+- Parcial 1
+- Parcial 2
+
+Momento 2
+- Parcial 3
+- Parcial 4
+
+Momento 3
+- Parcial 5
+- Parcial 6
+
+El promedio de los parciales seleccionados genera automáticamente la calificación del momento.
+
+------------------------------------------------
+
+8. REDONDEO CONFIGURABLE
+
+Agregar configuración docente:
+
+Redondear desde:
+
+0.5
+o
+0.6
+
+Ejemplo:
+
+8.5 → 9
+8.6 → 9
+
+8.4 → 8
+
+EXCEPCIÓN:
+
+Las reprobatorias NO redondean.
+
+5.5 = 5
+5.6 = 5
+
+Mantener reprobación real.
+
+------------------------------------------------
+
+9. LEYENDAS DE DESEMPEÑO
+
+Mostrar automáticamente:
+
+10 = Excelente
+9 = Bien
+8 = Eficiente
+7 = Promedio
+6 = Requiere ayuda
+5 = Ineficiente
+
+Visible en:
+
+- Boletas
+- Consulta alumno
+- Reportes
+
+------------------------------------------------
+
+10. CONSULTA DE BOLETA
+
+Al seleccionar un alumno mostrar:
+
+Nombre
+Matrícula
+Grupo
+
+Momento 1
+Momento 2
+Momento 3
+
+Promedio Final
+
+Leyenda de desempeño
+
+Comentarios docentes
+
+Generar vista lista para imprimir PDF.
+
+------------------------------------------------
+
+11. FIREBASE
+
+Crear colecciones:
+
+Parciales
+Tareas
+Momentos
+Boletas
+
+Mantener compatibilidad con la estructura actual.
+
+No eliminar funciones existentes.
+Solo ampliar funcionalidades.

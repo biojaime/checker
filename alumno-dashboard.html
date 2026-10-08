@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaderoChecker – Portal del Alumno</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { align-items: flex-start; padding: 30px 20px; }
+    .dash-wrap { width: 100%; max-width: 740px; z-index: 10; display: flex; flex-direction: column; gap: 1.2rem; }
+
+    .dash-header {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 18px;
+      padding: 1.6rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    .dash-header img { height: 52px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.2)); }
+    .dash-header-text h1 { color: #fff; font-size: 1.5rem; font-weight: 800; }
+    .dash-header-text p  { color: rgba(255,255,255,0.75); font-size: 0.9rem; margin-top: 2px; }
+
+    .info-card {
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 16px;
+      padding: 1.4rem 1.8rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .info-item { display: flex; flex-direction: column; gap: 3px; }
+    .info-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.55); font-weight: 700; }
+    .info-value { font-size: 1rem; font-weight: 800; color: #fff; }
+
+    .subjects-card {
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+    .subjects-card-head {
+      padding: 1.1rem 1.6rem;
+      background: linear-gradient(90deg, #1f2029, #2d2b45);
+      color: #fff;
+      font-weight: 800;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .subjects-card-head span { background: rgba(133,93,230,0.3); padding: 2px 10px; border-radius: 20px; font-size: 0.82rem; margin-left: auto; font-weight: 700; }
+
+    table.stbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    table.stbl th { padding: 10px 16px; background: #f8f9fa; color: #555; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid #eee; text-align: left; font-weight: 700; }
+    table.stbl td { padding: 12px 16px; border-bottom: 1px solid #f3f3f3; color: #333; }
+    table.stbl tr:last-child td { border-bottom: none; }
+    table.stbl tbody tr:hover { background: #fafbff; }
+    table.stbl .sub-code { font-family: monospace; font-size: 0.82rem; font-weight: 800; color: #855de6; background: #f0ebff; padding: 3px 8px; border-radius: 6px; }
+
+    .btn-logout-dash {
+      width: 100%; padding: 14px;
+      background: rgba(173,0,0,0.75);
+      border: 1px solid rgba(173,0,0,0.5);
+      color: #fff; border-radius: 14px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      transition: all 0.2s;
+      backdrop-filter: blur(8px);
+    }
+    .btn-logout-dash:hover { background: rgba(173,0,0,0.9); transform: translateY(-1px); }
+
+    .chip-grado { display: inline-block; background: rgba(133,93,230,0.2); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 800; border: 1px solid rgba(133,93,230,0.4); }
+  </style>
+</head>
+<body>
+  <img src="./home_files/db2c647cf06bb10a8906a80f06464546.png" class="bg-decoration bg-decoration-1" alt="">
+  <img src="./home_files/db2c647cf06bb10a8906a80f06464546.png" class="bg-decoration bg-decoration-2" alt="">
+  <img src="./home_files/db2c647cf06bb10a8906a80f06464546.png" class="bg-decoration bg-decoration-3" alt="">
+  <img src="./home_files/db2c647cf06bb10a8906a80f06464546.png" class="bg-decoration bg-decoration-4" alt="">
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <div class="dash-wrap">
+    <div class="dash-header">
+      <img src="./home_files/ad0ab9a6c6a3c1caac40fecc3ba9fc1f.png" alt="Logo">
+      <div class="dash-header-text">
+        <h1>¡Hola, <span id="welcome-name">Alumno</span>!</h1>
+        <p>Portal MaderoChecker · <span id="school-year">Ciclo Escolar 2024-2025</span></p>
+      </div>
+    </div>
+
+    <div class="info-card" id="info-loading">
+      <div class="info-item"><span class="info-label">Nombre Completo</span><span class="info-value" id="ui-nombre">Cargando…</span></div>
+      <div class="info-item"><span class="info-label">Matrícula</span><span class="info-value" id="ui-matricula">—</span></div>
+      <div class="info-item"><span class="info-label">Grado</span><span class="info-value" id="ui-grado">—</span></div>
+      <div class="info-item"><span class="info-label">Grupo</span><span class="info-value" id="ui-grupo">—</span></div>
+    </div>
+
+    <div class="subjects-card">
+      <div class="subjects-card-head">
+        📚 Mis Materias
+        <span id="grade-badge">—</span>
+      </div>
+      <table class="stbl">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Materia</th>
+          </tr>
+        </thead>
+        <tbody id="stbl-body">
+          <tr><td colspan="2" style="text-align:center;padding:2rem;color:#aaa;">Cargando materias…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <button class="btn-logout-dash" id="btn-logout">✕ Cerrar Sesión</button>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-init.js"></script>
+  <script>
+    // ── Session check ────────────────────
+    if (sessionStorage.getItem("userRole") !== "Alumno") location.href = "index.html";
+
+    const MATRICULA = sessionStorage.getItem("username") || "";
+
+    // ── Subject catalogue (official) ─────
+    const SUBJECTS = {
+      "1": ["Matemáticas I","Español I","Educación Física I","Formación Cívica y Ética I","Historia I","Geografía","Smart Mind I","Informática I","Inglés I","Artes I","Biología"],
+      "2": ["Matemáticas II","Español II","Educación Física II","Formación Cívica y Ética II","Historia II","Smart Mind II","Informática II","Inglés II","Artes II","Física"],
+      "3": ["Matemáticas III","Español III","Educación Física III","Formación Cívica y Ética III","Historia III","Smart Mind III","Informática III","Inglés III","Artes III","Química"]
+    };
+
+    function showToast(msg, type="error") {
+      const t = document.createElement("div");
+      t.className = `toast toast-${type==="success"?"success":"error"}`;
+      t.innerHTML = `<span>${msg}</span><span style="cursor:pointer;margin-left:10px;font-weight:bold;" onclick="this.parentElement.remove()">×</span>`;
+      document.getElementById("toast-container").appendChild(t);
+      setTimeout(() => { t.classList.add("slide-out"); t.addEventListener("animationend",()=>t.remove()); }, 4000);
+    }
+
+    // ── Load profile (always by Matrícula doc ID) ──
+    async function loadProfile() {
+      try {
+        const snap = await db.collection("Usuarios").doc(MATRICULA).get();
+
+        if (!snap.exists) {
+          showToast("No se encontró tu perfil. Contacta al administrador.");
+          document.getElementById("stbl-body").innerHTML = `<tr><td colspan="2" style="text-align:center;padding:2rem;color:#e74c3c;">Perfil no encontrado. Contacta al administrador.</td></tr>`;
+          return;
+        }
+
+        const d = snap.data();
+        const nombre = d.Nombre || sessionStorage.getItem("fullName") || "Alumno";
+        const grado  = String(d.Grado || "");
+        const grupo  = d.Grupo || "—";
+
+        document.getElementById("welcome-name").textContent = nombre.split(" ")[0];
+        document.getElementById("ui-nombre").textContent   = nombre;
+        document.getElementById("ui-matricula").textContent = MATRICULA;
+        document.getElementById("ui-grado").textContent    = grado ? `${grado}° de Secundaria` : "Sin grado";
+        document.getElementById("ui-grupo").textContent    = grupo;
+        document.getElementById("grade-badge").textContent = grado ? `${grado}° de Secundaria` : "Sin asignar";
+
+        renderSubjects(grado);
+      } catch(e) {
+        showToast("Error al cargar perfil: " + e.message);
+      }
+    }
+
+    function renderSubjects(grado) {
+      const tbody = document.getElementById("stbl-body");
+      const list = SUBJECTS[grado];
+      if (!list) {
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;padding:2rem;color:#aaa;">No hay materias configuradas para tu grado.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = list.map((s, i) => `
+        <tr>
+          <td style="color:#aaa; font-weight:700; width:40px;">${String(i+1).padStart(2,"0")}</td>
+          <td><strong>${s}</strong></td>
+        </tr>`).join("");
+    }
+
+    document.getElementById("btn-logout").onclick = () => { sessionStorage.clear(); location.href = "index.html"; };
+
+    loadProfile();
+  </script>
+</body>
+</html>

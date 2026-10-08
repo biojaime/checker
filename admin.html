@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaderoChecker – Panel Administrativo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --purple: #7c3aed;
+      --purple-light: #ede9fe;
+      --purple-mid: #8b5cf6;
+      --red: #dc2626;
+      --red-light: #fee2e2;
+      --green: #16a34a;
+      --green-light: #dcfce7;
+      --orange: #d97706;
+      --orange-light: #fef3c7;
+      --sidebar-bg: #0f0e1a;
+      --sidebar-w: 260px;
+      --main-bg: #f1f5f9;
+      --card-bg: #fff;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--main-bg); color: var(--text); }
+
+    /* ══════════ TOASTS ══════════ */
+    #toasts { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast {
+      background: #fff; color: var(--text); padding: 14px 18px 14px 14px;
+      border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      font-weight: 600; font-size: 0.88rem; display: flex; align-items: center; gap: 10px;
+      min-width: 260px; max-width: 360px; pointer-events: all;
+      opacity: 0; transform: translateX(40px);
+      animation: tin 0.3s cubic-bezier(.34,1.56,.64,1) forwards;
+      border-left: 4px solid var(--purple);
+    }
+    .toast.err { border-left-color: var(--red); }
+    .toast.ok  { border-left-color: var(--green); }
+    .toast.out { animation: tout 0.3s ease forwards; }
+    @keyframes tin  { to { opacity:1; transform:translateX(0); } }
+    @keyframes tout { to { opacity:0; transform:translateX(40px); } }
+
+    /* ══════════ LAYOUT ══════════ */
+    .shell { display: flex; min-height: 100vh; }
+
+    /* ══════════ SIDEBAR ══════════ */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--sidebar-bg);
+      display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      overflow-y: auto;
+    }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 1.4rem 1.4rem 1.2rem;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .sidebar-logo img { height: 30px; filter: brightness(0) invert(1); }
+    .sidebar-logo span { color: #fff; font-weight: 800; font-size: 1rem; letter-spacing: -0.3px; }
+
+    .sidebar-section {
+      padding: 1.2rem 1rem 0.5rem;
+    }
+    .sidebar-section-label {
+      font-size: 0.65rem; font-weight: 800;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      color: rgba(255,255,255,0.28);
+      padding: 0 0.4rem; margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    /* Premium nav cards */
+    .nav-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      cursor: pointer; color: rgba(255,255,255,0.55);
+      font-weight: 600; font-size: 0.88rem;
+      border: none; background: none; width: 100%; text-align: left;
+      transition: all 0.2s; position: relative; margin-bottom: 4px;
+    }
+    .nav-card-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 1.1rem;
+      transition: all 0.2s;
+    }
+    .nav-card-icon.purple { background: rgba(124,58,237,0.2); color: #a78bfa; }
+    .nav-card-icon.green  { background: rgba(22,163,74,0.2);  color: #4ade80; }
+    .nav-card-icon.orange { background: rgba(217,119,6,0.2);  color: #fbbf24; }
+    .nav-card-icon.blue   { background: rgba(37,99,235,0.2);  color: #60a5fa; }
+    .nav-card-icon.red    { background: rgba(220,38,38,0.2);  color: #f87171; }
+
+    .nav-card-text { display: flex; flex-direction: column; gap: 1px; flex: 1; }
+    .nav-card-title { font-size: 0.88rem; font-weight: 700; }
+    .nav-card-sub   { font-size: 0.72rem; color: rgba(255,255,255,0.35); }
+
+    .nav-badge {
+      background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8);
+      font-size: 0.7rem; font-weight: 800;
+      padding: 2px 7px; border-radius: 20px; min-width: 22px; text-align: center;
+    }
+    .nav-badge.orange { background: rgba(217,119,6,0.5); color: #fbbf24; }
+    .nav-badge.green  { background: rgba(22,163,74,0.4); color: #4ade80; }
+    .nav-badge.purple { background: rgba(124,58,237,0.4); color: #a78bfa; }
+
+    .nav-card:hover { background: rgba(255,255,255,0.07); color: #fff; }
+    .nav-card:hover .nav-card-icon { filter: brightness(1.2); }
+    .nav-card.active { background: rgba(124,58,237,0.18); color: #fff; }
+    .nav-card.active::before {
+      content: ''; position: absolute; left: 0; top: 25%; bottom: 25%;
+      width: 3px; background: var(--purple-mid);
+      border-radius: 0 3px 3px 0;
+    }
+    .nav-card.active .nav-card-icon.purple { background: rgba(124,58,237,0.4); }
+    .nav-card.active .nav-card-icon.green  { background: rgba(22,163,74,0.35); }
+    .nav-card.active .nav-card-icon.orange { background: rgba(217,119,6,0.35); }
+
+    .sidebar-footer {
+      margin-top: auto; padding: 1rem; border-top: 1px solid rgba(255,255,255,0.07);
+    }
+    .sidebar-admin-info {
+      display: flex; align-items: center; gap: 10px; padding: 0.7rem 0.8rem;
+      background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 0.7rem;
+    }
+    .sidebar-admin-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--purple-mid), var(--red));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 0.9rem; color: #fff; flex-shrink: 0;
+    }
+    .sidebar-admin-name { font-size: 0.82rem; font-weight: 700; color: #fff; }
+    .sidebar-admin-role { font-size: 0.7rem; color: rgba(255,255,255,0.4); }
+    .btn-logout-sidebar {
+      width: 100%; padding: 9px; background: rgba(220,38,38,0.2);
+      border: 1px solid rgba(220,38,38,0.35); color: rgba(255,255,255,0.8);
+      border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.85rem;
+      transition: all 0.2s; font-family: inherit;
+    }
+    .btn-logout-sidebar:hover { background: rgba(220,38,38,0.45); color: #fff; }
+
+    /* ══════════ MAIN ══════════ */
+    .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+    .topbar {
+      background: #fff; padding: 1rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar-title { font-size: 1.2rem; font-weight: 800; color: var(--text); }
+    .topbar-sub   { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .topbar-chip {
+      background: var(--purple-light); color: var(--purple);
+      font-size: 0.78rem; font-weight: 700; padding: 5px 12px; border-radius: 20px;
+    }
+
+    .page-content { padding: 1.5rem 2rem; flex: 1; }
+
+    /* ══════════ STATS ROW ══════════ */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: #fff; border-radius: 16px;
+      padding: 1.3rem 1.5rem;
+      display: flex; align-items: center; gap: 1rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
+      transition: box-shadow 0.2s;
+    }
+    .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); }
+    .stat-icon {
+      width: 50px; height: 50px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; flex-shrink: 0;
+    }
+    .stat-icon.purple { background: rgba(124,58,237,0.1); }
+    .stat-icon.green  { background: rgba(22,163,74,0.1); }
+    .stat-icon.orange { background: rgba(217,119,6,0.1); }
+    .stat-num { font-size: 2rem; font-weight: 900; color: var(--text); line-height: 1; }
+    .stat-lbl { font-size: 0.75rem; color: var(--muted); font-weight: 600; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ══════════ PANELS ══════════ */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ══════════ CARD ══════════ */
+    .card { background: #fff; border-radius: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid var(--border); overflow: hidden; }
+    .card-header {
+      padding: 1.1rem 1.5rem; border-bottom: 1px solid #f3f4f6;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-header h2 { font-size: 1rem; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .card-actions { display: flex; gap: 8px; align-items: center; }
+
+    /* ══════════ FILTER BAR ══════════ */
+    .filter-bar {
+      padding: 0.75rem 1.5rem; background: #fafafa;
+      border-bottom: 1px solid #f3f4f6;
+      display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    }
+    .filter-btn {
+      padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border);
+      background: #fff; font-size: 0.8rem; font-weight: 700;
+      cursor: pointer; color: var(--muted); transition: all 0.15s; font-family: inherit;
+    }
+    .filter-btn:hover { border-color: var(--purple-mid); color: var(--purple); }
+    .filter-btn.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+    .filter-divider { color: #ccc; font-size: 0.75rem; margin: 0 2px; }
+    .search-box {
+      padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+      font-size: 0.85rem; outline: none; min-width: 180px; font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .search-box:focus { border-color: var(--purple-mid); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+
+    /* ══════════ TABLE ══════════ */
+    .table-wrap { overflow-x: auto; }
+    table.tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    table.tbl th {
+      padding: 10px 16px; background: #f9fafb; color: var(--muted);
+      font-weight: 700; font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 0.5px; border-bottom: 1px solid var(--border); text-align: left;
+    }
+    table.tbl td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; color: var(--text); vertical-align: middle; }
+    table.tbl tr:last-child td { border-bottom: none; }
+    table.tbl tbody tr:hover { background: #fafbff; }
+    .tbl-empty td { text-align: center; padding: 3rem; color: #9ca3af; font-weight: 600; font-size: 0.9rem; }
+
+    /* ══════════ CHIPS ══════════ */
+    .chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; gap: 4px; }
+    .chip-purple { background: var(--purple-light); color: var(--purple); }
+    .chip-green  { background: var(--green-light);  color: var(--green); }
+    .chip-orange { background: var(--orange-light);  color: var(--orange); }
+    .chip-red    { background: var(--red-light);    color: var(--red); }
+    .chip-gray   { background: #f3f4f6; color: #374151; }
+    .chip-blue   { background: #dbeafe; color: #1d4ed8; }
+
+    /* ══════════ BUTTONS ══════════ */
+    .btn {
+      padding: 6px 13px; border-radius: 8px; font-weight: 700;
+      font-size: 0.8rem; border: none; cursor: pointer;
+      transition: all 0.18s; display: inline-flex; align-items: center;
+      gap: 5px; font-family: inherit; white-space: nowrap;
+    }
+    .btn-green  { background: var(--green-light); color: var(--green); }
+    .btn-green:hover  { background: #16a34a; color: #fff; }
+    .btn-purple { background: var(--purple-light); color: var(--purple); }
+    .btn-purple:hover { background: var(--purple); color: #fff; }
+    .btn-red    { background: var(--red-light); color: var(--red); }
+    .btn-red:hover    { background: var(--red); color: #fff; }
+    .btn-primary { background: linear-gradient(135deg, var(--purple), #5b21b6); color: #fff; box-shadow: 0 2px 8px rgba(124,58,237,0.3); }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(124,58,237,0.4); }
+    .btn-lg { padding: 10px 20px; font-size: 0.9rem; border-radius: 10px; }
+
+    /* ══════════ FORM ══════════ */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media(max-width:640px){ .form-grid { grid-template-columns: 1fr; } }
+    .fgroup { display: flex; flex-direction: column; gap: 5px; }
+    .fgroup label { font-size: 0.82rem; font-weight: 700; color: #374151; }
+    .finput, .fselect {
+      padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+      font-size: 0.9rem; outline: none; background: #fff; color: var(--text);
+      transition: all 0.2s; font-family: inherit;
+    }
+    .finput:focus, .fselect:focus { border-color: var(--purple-mid); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+
+    /* ══════════ DROPZONE ══════════ */
+    .dropzone {
+      border: 2px dashed #c4b5fd; border-radius: 14px; padding: 2.5rem;
+      text-align: center; background: #faf8ff; cursor: pointer; transition: all 0.2s;
+    }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--purple); background: #f3eeff; }
+    .dropzone-icon { font-size: 2.5rem; margin-bottom: 0.6rem; }
+    .dropzone p { font-weight: 600; color: #555; margin-bottom: 0.3rem; }
+    .dropzone small { color: #999; font-size: 0.82rem; }
+
+    /* ══════════ MODAL ══════════ */
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(5px); z-index: 200;
+      display: none; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal-bg.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 20px; width: 100%;
+      max-width: 560px; max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.2);
+      animation: modalIn 0.25s cubic-bezier(.34,1.2,.64,1);
+    }
+    @keyframes modalIn { from { opacity:0; transform: scale(0.95) translateY(10px); } }
+    .modal-head {
+      padding: 1.3rem 1.6rem; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(135deg, #faf8ff, #fff);
+    }
+    .modal-head h3 { font-size: 1.05rem; font-weight: 800; color: var(--text); }
+    .modal-close { background: #f3f4f6; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; color: var(--muted); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .modal-close:hover { background: var(--red-light); color: var(--red); }
+    .modal-body { padding: 1.4rem 1.6rem; display: flex; flex-direction: column; gap: 1rem; }
+    .modal-foot { padding: 1rem 1.6rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: #fafafa; border-radius: 0 0 20px 20px; }
+
+    /* ══════════ SUBJECT SELECTOR ══════════ */
+    .grade-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+    .grade-tab {
+      flex: 1; padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border);
+      background: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+      color: var(--muted); transition: all 0.15s; text-align: center; font-family: inherit;
+    }
+    .grade-tab:hover { border-color: var(--purple-mid); color: var(--purple); }
+    .grade-tab.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+
+    .subject-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 280px; overflow-y: auto; padding: 2px; }
+    .subject-check {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: 9px; border: 1.5px solid var(--border);
+      cursor: pointer; font-size: 0.82rem; font-weight: 600; color: #444;
+      transition: all 0.15s; user-select: none;
+    }
+    .subject-check:hover { border-color: var(--purple-mid); color: var(--purple); background: #faf8ff; }
+    .subject-check input { accent-color: var(--purple); width: 15px; height: 15px; cursor: pointer; }
+    .subject-check.checked { background: var(--purple-light); border-color: var(--purple-mid); color: var(--purple); }
+
+    .assigned-tags { display: flex; flex-wrap: wrap; gap: 6px; max-height: 100px; overflow-y: auto; }
+    .tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--purple-light); color: var(--purple);
+      padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+    }
+    .tag button { background: none; border: none; cursor: pointer; color: var(--red); font-weight: 900; line-height: 1; padding: 0; font-size: 0.85rem; }
+
+    /* ══════════ SPINNER ══════════ */
+    .spinner-sm { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ══════════ CSV PREVIEW ══════════ */
+    .preview-table { font-size: 0.82rem; }
+
+    /* ══════════ SECTION DIVIDER ══════════ */
+    .section-divider { height: 1px; background: linear-gradient(90deg, var(--purple-light), transparent); margin: 1.5rem 0; }
+  </style>
+</head>
+<body>
+<div id="toasts"></div>
+
+<div class="shell">
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <img src="./home_files/ad0ab9a6c6a3c1caac40fecc3ba9fc1f.png" alt="logo">
+      <span>MaderoChecker</span>
+    </div>
+
+    <div class="sidebar-section">
+      <span class="sidebar-section-label">Gestión</span>
+
+      <button class="nav-card active" data-panel="solicitudes">
+        <div class="nav-card-icon orange">📋</div>
+        <div class="nav-card-text">
+          <span class="nav-card-title">Solicitudes</span>
+          <span class="nav-card-sub">Aprobar o rechazar</span>
+        </div>
+        <span class="nav-badge orange" id="nb-sol">0</span>
+      </button>
+
+      <button class="nav-card" data-panel="alumnos">
+        <div class="nav-card-icon green">🎓</div>
+        <div class="nav-card-text">
+          <span class="nav-card-title">Alumnos</span>
+          <span class="nav-card-sub">Por grado y grupo</span>
+        </div>
+        <span class="nav-badge green" id="nb-alm">0</span>
+      </button>
+
+      <button class="nav-card" data-panel="docentes">
+        <div class="nav-card-icon purple">👨‍🏫</div>
+        <div class="nav-card-text">
+          <span class="nav-card-title">Docentes</span>
+          <span class="nav-card-sub">& Tutores</span>
+        </div>
+        <span class="nav-badge purple" id="nb-doc">0</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section" style="margin-top: 0.5rem;">
+      <span class="sidebar-section-label">Registrar</span>
+
+      <button class="nav-card" data-panel="manual">
+        <div class="nav-card-icon blue">✏️</div>
+        <div class="nav-card-text">
+          <span class="nav-card-title">Registro Manual</span>
+          <span class="nav-card-sub">Añadir uno a uno</span>
+        </div>
+      </button>
+
+      <button class="nav-card" data-panel="csv">
+        <div class="nav-card-icon red">📁</div>
+        <div class="nav-card-text">
+          <span class="nav-card-title">Subir Salón</span>
+          <span class="nav-card-sub">Importar CSV</span>
+        </div>
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-admin-info">
+        <div class="sidebar-admin-avatar" id="admin-avatar">A</div>
+        <div>
+          <div class="sidebar-admin-name" id="admin-name">Admin</div>
+          <div class="sidebar-admin-role">Administrador</div>
+        </div>
+      </div>
+      <button class="btn-logout-sidebar" id="btn-logout">🚪 Cerrar Sesión</button>
+    </div>
+  </aside>
+
+  <!-- ══════════ MAIN ══════════ -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbar-title">Solicitudes de Registro</div>
+        <div class="topbar-sub" id="topbar-sub">Revisa y aprueba nuevos usuarios</div>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-chip" id="topbar-chip">📋 Solicitudes</span>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon orange">📋</div>
+          <div>
+            <div class="stat-num" id="s-sol">0</div>
+            <div class="stat-lbl">Solicitudes</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">🎓</div>
+          <div>
+            <div class="stat-num" id="s-alm">0</div>
+            <div class="stat-lbl">Alumnos</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon purple">👨‍🏫</div>
+          <div>
+            <div class="stat-num" id="s-doc">0</div>
+            <div class="stat-lbl">Docentes</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PANEL: SOLICITUDES ═══ -->
+      <div class="panel active" id="panel-solicitudes">
+        <div class="card">
+          <div class="card-header">
+            <h2>📋 Solicitudes Pendientes</h2>
+          </div>
+          <div class="table-wrap">
+            <table class="tbl" id="tbl-sol">
+              <thead><tr>
+                <th>Matrícula</th><th>Nombre Completo</th><th>Correo</th><th>Fecha</th><th>Acciones</th>
+              </tr></thead>
+              <tbody><tr class="tbl-empty"><td colspan="5">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PANEL: ALUMNOS ═══ -->
+      <div class="panel" id="panel-alumnos">
+        <div class="card">
+          <div class="card-header">
+            <h2>🎓 Alumnos</h2>
+            <div class="card-actions">
+              <button class="btn btn-red" id="btn-bulk-del-alm" style="display:none;">🗑 Dar de baja seleccionados</button>
+            </div>
+          </div>
+          <div class="filter-bar" id="alm-filters">
+            <button class="filter-btn active" data-grade="" data-group="">Todos</button>
+            <span class="filter-divider">•</span>
+            <button class="filter-btn" data-grade="1" data-group="">1ro</button>
+            <button class="filter-btn" data-grade="1" data-group="A">1A</button>
+            <button class="filter-btn" data-grade="1" data-group="B">1B</button>
+            <button class="filter-btn" data-grade="1" data-group="C">1C</button>
+            <span class="filter-divider">•</span>
+            <button class="filter-btn" data-grade="2" data-group="">2do</button>
+            <button class="filter-btn" data-grade="2" data-group="A">2A</button>
+            <button class="filter-btn" data-grade="2" data-group="B">2B</button>
+            <button class="filter-btn" data-grade="2" data-group="C">2C</button>
+            <span class="filter-divider">•</span>
+            <button class="filter-btn" data-grade="3" data-group="">3ro</button>
+            <button class="filter-btn" data-grade="3" data-group="A">3A</button>
+            <button class="filter-btn" data-grade="3" data-group="B">3B</button>
+            <button class="filter-btn" data-grade="3" data-group="C">3C</button>
+            <input type="text" class="search-box" id="search-alm" placeholder="🔍 Buscar alumno…" style="margin-left:auto;">
+          </div>
+          <div class="table-wrap">
+            <table class="tbl" id="tbl-alm">
+              <thead><tr>
+                <th style="width:36px;"><input type="checkbox" id="chk-all-alm"></th>
+                <th>Matrícula</th><th>Nombre Completo</th><th>Correo</th><th>Grado</th><th>Grupo</th><th>Acciones</th>
+              </tr></thead>
+              <tbody><tr class="tbl-empty"><td colspan="7">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PANEL: DOCENTES ═══ -->
+      <div class="panel" id="panel-docentes">
+        <div class="card">
+          <div class="card-header">
+            <h2>👨‍🏫 Docentes & Tutores</h2>
+            <div class="card-actions">
+              <button class="filter-btn active" data-rol-filter="">Todos</button>
+              <button class="filter-btn" data-rol-filter="Docente">Docentes</button>
+              <button class="filter-btn" data-rol-filter="Docente (tutor)">Tutores</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="tbl" id="tbl-doc">
+              <thead><tr>
+                <th>Matrícula / ID</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Materias asignadas</th><th>Acciones</th>
+              </tr></thead>
+              <tbody><tr class="tbl-empty"><td colspan="6">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PANEL: REGISTRO MANUAL ═══ -->
+      <div class="panel" id="panel-manual">
+        <div class="card">
+          <div class="card-header">
+            <h2>✏️ Registrar Usuario Manualmente</h2>
+          </div>
+          <div style="padding:1.6rem;">
+            <form id="frm-manual">
+              <div class="form-grid">
+                <div class="fgroup">
+                  <label>Nombre Completo *</label>
+                  <input class="finput" id="m-nombre" placeholder="Ej. Juan Pérez López" required>
+                </div>
+                <div class="fgroup">
+                  <label>Matrícula *</label>
+                  <input class="finput" id="m-matricula" placeholder="Ej. 2024001" required>
+                </div>
+                <div class="fgroup">
+                  <label>Correo *</label>
+                  <input class="finput" type="email" id="m-correo" placeholder="correo@ejemplo.com" required>
+                </div>
+                <div class="fgroup">
+                  <label>Rol *</label>
+                  <select class="fselect" id="m-rol">
+                    <option value="Alumno">Alumno</option>
+                    <option value="Docente">Docente</option>
+                    <option value="Docente (tutor)">Docente (tutor)</option>
+                  </select>
+                </div>
+                <div class="fgroup" id="m-grado-wrap">
+                  <label>Grado</label>
+                  <select class="fselect" id="m-grado">
+                    <option value="1">1ro de Secundaria</option>
+                    <option value="2">2do de Secundaria</option>
+                    <option value="3">3ro de Secundaria</option>
+                  </select>
+                </div>
+                <div class="fgroup" id="m-grupo-wrap">
+                  <label>Grupo</label>
+                  <select class="fselect" id="m-grupo">
+                    <option>A</option><option>B</option><option>C</option><option>D</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-lg" style="margin-top:1.2rem;">
+                ✚ Registrar Usuario
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PANEL: CSV ═══ -->
+      <div class="panel" id="panel-csv">
+        <div class="card">
+          <div class="card-header">
+            <h2>📁 Subir Salón (Importación CSV)</h2>
+          </div>
+          <div style="padding:1.6rem;">
+            <p style="font-size:0.88rem; color:#666; margin-bottom:1rem; line-height:1.6; background:#faf8ff; padding:12px 16px; border-radius:10px; border-left:3px solid var(--purple-mid);">
+              El archivo CSV debe contener las columnas (cualquier orden, mayúsculas/minúsculas):<br>
+              <code style="background:#ede9fe; padding:3px 8px; border-radius:5px; font-size:0.85rem;">Nombre completo, Correo, Matricula, Grado, Grupo</code><br>
+              <small style="color:#999; margin-top:4px; display:block;">El Grado puede ser: 1, 2, 3, "1ro", "2do", "3ro", "primero", etc.</small>
+            </p>
+            <div class="dropzone" id="dropzone">
+              <div class="dropzone-icon">📂</div>
+              <p>Arrastra tu CSV aquí o <strong style="color:var(--purple);">haz clic para seleccionar</strong></p>
+              <small>Solo archivos .csv</small>
+            </div>
+            <input type="file" id="csv-hidden" accept=".csv" style="display:none;">
+            <div id="csv-preview" style="margin-top:1.2rem; display:none;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+                <span id="csv-info" style="font-size:0.85rem; font-weight:700; color:#555;"></span>
+                <button class="btn btn-primary btn-lg" id="btn-import-confirm">⬆ Importar al Sistema</button>
+              </div>
+              <div class="table-wrap preview-table">
+                <table class="tbl" id="tbl-preview"><thead></thead><tbody></tbody></table>
+              </div>
+            </div>
+            <p id="csv-status" style="margin-top:0.8rem; font-weight:700; font-size:0.9rem;"></p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ═══ MODAL: APROBAR SOLICITUD ═══ -->
+<div class="modal-bg" id="modal-aprobar">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>✅ Dar de Alta — Aprobar Solicitud</h3>
+      <button class="modal-close" onclick="closeModal('modal-aprobar')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ma-id">
+      <p style="font-size:0.9rem; color:#555; background:#f9fafb; padding:10px 14px; border-radius:8px;">
+        Aprobando a: <strong id="ma-nombre"></strong>
+      </p>
+      <div class="fgroup">
+        <label>Rol del usuario</label>
+        <select class="fselect" id="ma-rol">
+          <option value="Alumno">Alumno</option>
+          <option value="Docente">Docente</option>
+          <option value="Docente (tutor)">Docente (tutor)</option>
+        </select>
+      </div>
+      <div id="ma-alum-fields" style="display:flex; gap:1rem;">
+        <div class="fgroup" style="flex:1;">
+          <label>Grado</label>
+          <select class="fselect" id="ma-grado">
+            <option value="1">1ro</option><option value="2">2do</option><option value="3">3ro</option>
+          </select>
+        </div>
+        <div class="fgroup" style="flex:1;">
+          <label>Grupo</label>
+          <select class="fselect" id="ma-grupo">
+            <option>A</option><option>B</option><option>C</option><option>D</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-red" onclick="closeModal('modal-aprobar')">Cancelar</button>
+      <button class="btn btn-primary btn-lg" id="btn-ma-save">✓ Dar de Alta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: ASIGNAR MATERIAS ═══ -->
+<div class="modal-bg" id="modal-materias">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>📚 Asignar Materias — <span id="mm-nombre"></span></h3>
+      <button class="modal-close" onclick="closeModal('modal-materias')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mm-id">
+      <div class="fgroup">
+        <label>Filtrar por grado</label>
+        <div class="grade-tabs">
+          <button class="grade-tab active" data-grade="">Todos</button>
+          <button class="grade-tab" data-grade="1">1ro Sec.</button>
+          <button class="grade-tab" data-grade="2">2do Sec.</button>
+          <button class="grade-tab" data-grade="3">3ro Sec.</button>
+        </div>
+      </div>
+      <div class="fgroup">
+        <label>Seleccionar Materias</label>
+        <div class="subject-grid" id="subject-grid"></div>
+      </div>
+      <div class="fgroup">
+        <label>Materias asignadas actualmente (<span id="mm-count">0</span>)</label>
+        <div class="assigned-tags" id="assigned-tags">
+          <span style="font-size:0.82rem; color:#aaa;">Ninguna aún</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-red" onclick="closeModal('modal-materias')">Cerrar</button>
+      <button class="btn btn-primary btn-lg" id="btn-mm-save">💾 Guardar Materias</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="firebase-init.js"></script>
+<script>
+// ════════════════════════════════════════
+// SESSION CHECK
+// ════════════════════════════════════════
+if (sessionStorage.getItem("userRole") !== "admin") window.location.href = "index.html";
+const adminUser = sessionStorage.getItem("username") || "Admin";
+document.getElementById("admin-name").textContent = adminUser;
+document.getElementById("admin-avatar").textContent = adminUser.charAt(0).toUpperCase();
+document.getElementById("btn-logout").onclick = () => { sessionStorage.clear(); location.href = "index.html"; };
+
+// ════════════════════════════════════════
+// SUBJECTS DATA — CATÁLOGO OFICIAL
+// ════════════════════════════════════════
+const SUBJECTS = {
+  "1": [
+    "Matemáticas I","Español I","Educación Física I","Formación Cívica y Ética I",
+    "Historia I","Geografía","Smart Mind I","Informática I","Inglés I","Artes I","Biología"
+  ],
+  "2": [
+    "Matemáticas II","Español II","Educación Física II","Formación Cívica y Ética II",
+    "Historia II","Smart Mind II","Informática II","Inglés II","Artes II","Física"
+  ],
+  "3": [
+    "Matemáticas III","Español III","Educación Física III","Formación Cívica y Ética III",
+    "Historia III","Smart Mind III","Informática III","Inglés III","Artes III","Química"
+  ]
+};
+const GRADE_LABELS = {
+  "1": "1ro de Secundaria",
+  "2": "2do de Secundaria",
+  "3": "3ro de Secundaria"
+};
+
+// ════════════════════════════════════════
+// HELPER: normalize grade value from CSV
+// e.g. "1ro", "primero", "1°", "1", " 1 " → "1"
+// ════════════════════════════════════════
+function normalizeGrade(raw) {
+  if (!raw) return "";
+  const s = String(raw).trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[°.]/g, "");
+  if (/^1|primer|uno/.test(s)) return "1";
+  if (/^2|segund|dos/.test(s)) return "2";
+  if (/^3|tercer|tres/.test(s)) return "3";
+  return s.replace(/\D/g,"").charAt(0) || "";
+}
+
+// ════════════════════════════════════════
+// HELPER: normalize group value
+// "a", " A ", "grupo a" → "A"
+// ════════════════════════════════════════
+function normalizeGroup(raw) {
+  if (!raw) return "";
+  const m = String(raw).trim().toUpperCase().match(/[A-Z]/);
+  return m ? m[0] : "";
+}
+
+// ════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════
+function toast(msg, type = "ok") {
+  const div = document.createElement("div");
+  div.className = `toast ${type}`;
+  div.innerHTML = `<span style="flex:1;">${msg}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:1rem;color:#9ca3af;">×</button>`;
+  document.getElementById("toasts").appendChild(div);
+  setTimeout(() => { div.classList.add("out"); div.addEventListener("animationend", () => div.remove()); }, 4500);
+}
+
+// ════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+// ════════════════════════════════════════
+// SIDEBAR NAVIGATION
+// ════════════════════════════════════════
+const panelMeta = {
+  solicitudes: { title: "Solicitudes de Registro",   sub: "Revisa y aprueba nuevos usuarios",       chip: "📋 Solicitudes" },
+  alumnos:     { title: "Gestión de Alumnos",         sub: "Filtra por grado y grupo",               chip: "🎓 Alumnos"     },
+  docentes:    { title: "Docentes & Tutores",          sub: "Asigna materias y roles",               chip: "👨‍🏫 Docentes"   },
+  manual:      { title: "Registrar Manualmente",      sub: "Añade un usuario directamente",          chip: "✏️ Manual"      },
+  csv:         { title: "Subir Salón (CSV)",           sub: "Importación masiva de alumnos",          chip: "📁 CSV"         }
+};
+
+document.querySelectorAll(".nav-card[data-panel]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-card[data-panel]").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    const id = btn.dataset.panel;
+    document.getElementById("panel-" + id).classList.add("active");
+    const m = panelMeta[id] || {};
+    document.getElementById("topbar-title").textContent = m.title || "";
+    document.getElementById("topbar-sub").textContent   = m.sub   || "";
+    document.getElementById("topbar-chip").textContent  = m.chip  || "";
+  });
+});
+
+// ════════════════════════════════════════
+// DATA CACHE
+// ════════════════════════════════════════
+let cacheAlumnos     = [];
+let cacheDocentes    = [];
+let cacheSolicitudes = [];
+let almGradeFilter   = "";
+let almGroupFilter   = "";
+let rolFilter        = "";
+
+// ════════════════════════════════════════
+// LOAD ALL DATA
+// ════════════════════════════════════════
+async function loadAll() {
+  try {
+    // Solicitudes
+    const solSnap = await db.collection("Solicitudes").doc("Registro").collection("Pendientes").get();
+    cacheSolicitudes = solSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Alumnos — STRICT: Rol == "Alumno" only
+    const almSnap = await db.collection("Usuarios").where("Rol", "==", "Alumno").get();
+    cacheAlumnos = almSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Docentes — Rol == "Docente" OR "Docente (tutor)"
+    const [ds1, ds2] = await Promise.all([
+      db.collection("Usuarios").where("Rol", "==", "Docente").get(),
+      db.collection("Usuarios").where("Rol", "==", "Docente (tutor)").get()
+    ]);
+    cacheDocentes = [
+      ...ds1.docs.map(d => ({ id: d.id, ...d.data() })),
+      ...ds2.docs.map(d => ({ id: d.id, ...d.data() }))
+    ];
+
+    updateStats();
+    renderSolicitudes();
+    renderAlumnos();
+    renderDocentes();
+  } catch (e) {
+    toast("Error cargando datos: " + e.message, "err");
+    console.error(e);
+  }
+}
+
+function updateStats() {
+  document.getElementById("s-sol").textContent  = cacheSolicitudes.length;
+  document.getElementById("s-alm").textContent  = cacheAlumnos.length;
+  document.getElementById("s-doc").textContent  = cacheDocentes.length;
+  document.getElementById("nb-sol").textContent = cacheSolicitudes.length;
+  document.getElementById("nb-alm").textContent = cacheAlumnos.length;
+  document.getElementById("nb-doc").textContent = cacheDocentes.length;
+}
+
+// ════════════════════════════════════════
+// RENDER SOLICITUDES
+// ════════════════════════════════════════
+function renderSolicitudes() {
+  const tbody = document.querySelector("#tbl-sol tbody");
+  if (!cacheSolicitudes.length) {
+    tbody.innerHTML = `<tr class="tbl-empty"><td colspan="5">No hay solicitudes pendientes 🎉</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = cacheSolicitudes.map(s => {
+    const fecha = s.FechaRegistro ? new Date(s.FechaRegistro).toLocaleDateString("es-MX") : "—";
+    return `<tr>
+      <td><code style="font-weight:800;color:var(--purple);">${h(s.Matricula || s.Usuario || s.id)}</code></td>
+      <td><strong>${h(s.Nombre || "—")}</strong></td>
+      <td style="font-size:0.85rem;">${h(s.Correo || "—")}</td>
+      <td><span class="chip chip-gray">${fecha}</span></td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-green" onclick="abrirAprobar('${s.id}','${h(s.Nombre)}')">✓ Aprobar</button>
+        <button class="btn btn-red" onclick="rechazarSolicitud('${s.id}')">✕ Rechazar</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+// ════════════════════════════════════════
+// RENDER ALUMNOS
+// ════════════════════════════════════════
+function renderAlumnos() {
+  const searchVal = (document.getElementById("search-alm")?.value || "").toLowerCase();
+  const tbody = document.querySelector("#tbl-alm tbody");
+  let list = cacheAlumnos;
+  if (almGradeFilter) list = list.filter(a => String(a.Grado) === almGradeFilter);
+  if (almGroupFilter) list = list.filter(a => String(a.Grupo || "").toUpperCase() === almGroupFilter.toUpperCase());
+  if (searchVal)      list = list.filter(a =>
+    (a.Nombre || "").toLowerCase().includes(searchVal) ||
+    (a.id || "").toLowerCase().includes(searchVal) ||
+    (a.Matricula || "").toLowerCase().includes(searchVal)
+  );
+  if (!list.length) {
+    tbody.innerHTML = `<tr class="tbl-empty"><td colspan="7">No hay alumnos para este filtro</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(a => {
+    const mat = a.Matricula || a.id;
+    const grado = a.Grado ? `${a.Grado}°` : "—";
+    const grupo = a.Grupo || "—";
+    return `<tr>
+      <td><input type="checkbox" class="chk-alm" data-id="${a.id}"></td>
+      <td><code style="font-weight:800;color:var(--purple);">${h(mat)}</code></td>
+      <td><strong>${h(a.Nombre || "—")}</strong></td>
+      <td style="font-size:0.85rem;color:var(--muted);">${h(a.Correo || "—")}</td>
+      <td><span class="chip chip-purple">${grado}</span></td>
+      <td><span class="chip chip-gray">${grupo}</span></td>
+      <td style="display:flex;gap:5px;">
+        <button class="btn btn-red" onclick="darBaja('Usuarios','${a.id}')">✕ Dar de baja</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("chk-all-alm").onchange = (e) => {
+    document.querySelectorAll(".chk-alm").forEach(c => c.checked = e.target.checked);
+    toggleBulkBar();
+  };
+  document.querySelectorAll(".chk-alm").forEach(c => c.onchange = toggleBulkBar);
+}
+
+function toggleBulkBar() {
+  const checked = document.querySelectorAll(".chk-alm:checked").length;
+  document.getElementById("btn-bulk-del-alm").style.display = checked ? "inline-flex" : "none";
+}
+
+document.getElementById("btn-bulk-del-alm").onclick = async () => {
+  const ids = [...document.querySelectorAll(".chk-alm:checked")].map(c => c.dataset.id);
+  if (!ids.length) return;
+  if (!confirm(`¿Dar de baja a ${ids.length} alumno(s)? Esta acción es permanente.`)) return;
+  try {
+    const batch = db.batch();
+    ids.forEach(id => batch.delete(db.collection("Usuarios").doc(id)));
+    await batch.commit();
+    toast(`${ids.length} alumno(s) dados de baja`, "ok");
+    await loadAll();
+  } catch(e) { toast("Error: " + e.message, "err"); }
+};
+
+document.querySelectorAll("#alm-filters .filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#alm-filters .filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    almGradeFilter = btn.dataset.grade ?? "";
+    almGroupFilter = btn.dataset.group ?? "";
+    renderAlumnos();
+  });
+});
+document.getElementById("search-alm")?.addEventListener("input", renderAlumnos);
+
+// ════════════════════════════════════════
+// RENDER DOCENTES
+// ════════════════════════════════════════
+function renderDocentes() {
+  const tbody = document.querySelector("#tbl-doc tbody");
+  let list = cacheDocentes;
+  if (rolFilter) list = list.filter(d => d.Rol === rolFilter);
+  if (!list.length) {
+    tbody.innerHTML = `<tr class="tbl-empty"><td colspan="6">No hay docentes registrados</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(d => {
+    const mat = d.Matricula || d.id;
+    const materias = d.Clases || [];
+    const chipColor = d.Rol === "Docente (tutor)" ? "chip-orange" : "chip-purple";
+    const chipText  = d.Rol === "Docente (tutor)" ? "Tutor" : "Docente";
+    const materiasHtml = materias.length
+      ? materias.slice(0,3).map(m => `<span class="chip chip-blue" style="font-size:0.72rem;">${h(m)}</span>`).join(" ")
+        + (materias.length > 3 ? `<span class="chip chip-gray" style="font-size:0.72rem;">+${materias.length-3}</span>` : "")
+      : `<span style="color:#bbb;font-size:0.82rem;">Sin asignar</span>`;
+    return `<tr>
+      <td><code style="font-weight:800;color:#5b21b6;">${h(mat)}</code></td>
+      <td><strong>${h(d.Nombre || "—")}</strong></td>
+      <td style="font-size:0.85rem;color:var(--muted);">${h(d.Correo || "—")}</td>
+      <td><span class="chip ${chipColor}">${chipText}</span></td>
+      <td style="max-width:220px;">${materiasHtml}</td>
+      <td style="display:flex;gap:5px;">
+        <button class="btn btn-purple" onclick="abrirMaterias('${d.id}','${h(d.Nombre)}')">📚 Materias</button>
+        <button class="btn btn-red" onclick="darBaja('Usuarios','${d.id}')">✕ Baja</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+document.querySelectorAll("[data-rol-filter]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-rol-filter]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    rolFilter = btn.dataset.rolFilter;
+    renderDocentes();
+  });
+});
+
+// ════════════════════════════════════════
+// APROBAR SOLICITUD
+// ════════════════════════════════════════
+function abrirAprobar(id, nombre) {
+  document.getElementById("ma-id").value = id;
+  document.getElementById("ma-nombre").textContent = nombre;
+  document.getElementById("ma-rol").value = "Alumno";
+  document.getElementById("ma-alum-fields").style.display = "flex";
+  openModal("modal-aprobar");
+}
+
+document.getElementById("ma-rol").addEventListener("change", e => {
+  document.getElementById("ma-alum-fields").style.display = e.target.value === "Alumno" ? "flex" : "none";
+});
+
+document.getElementById("btn-ma-save").onclick = async () => {
+  const id    = document.getElementById("ma-id").value;
+  const rol   = document.getElementById("ma-rol").value;
+  const grado = document.getElementById("ma-grado").value;
+  const grupo = document.getElementById("ma-grupo").value;
+  const btn   = document.getElementById("btn-ma-save");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner-sm"></span> Guardando…`;
+  try {
+    const sol = cacheSolicitudes.find(s => s.id === id);
+    if (!sol) throw new Error("No se encontró la solicitud.");
+    const matricula = sol.Matricula || sol.Usuario || id;
+    await db.collection("Usuarios").doc(matricula).set({
+      Nombre:        sol.Nombre || "—",
+      Correo:        sol.Correo || "",
+      Matricula:     matricula,
+      Contraseña:    sol.Correo || "",
+      Rol:           rol,
+      Grado:         rol === "Alumno" ? grado : "",
+      Grupo:         rol === "Alumno" ? grupo : "",
+      Clases:        [],
+      Aprobado:      true,
+      FechaRegistro: new Date().toISOString()
+    });
+    await db.collection("Solicitudes").doc("Registro").collection("Pendientes").doc(id).delete();
+    toast(`${sol.Nombre} dado de alta como ${rol}`, "ok");
+    closeModal("modal-aprobar");
+    await loadAll();
+  } catch(e) {
+    toast("Error: " + e.message, "err");
+  }
+  btn.disabled = false;
+  btn.innerHTML = "✓ Dar de Alta";
+};
+
+async function rechazarSolicitud(id) {
+  if (!confirm("¿Rechazar esta solicitud?")) return;
+  await db.collection("Solicitudes").doc("Registro").collection("Pendientes").doc(id).delete();
+  toast("Solicitud rechazada", "ok");
+  await loadAll();
+}
+
+// ════════════════════════════════════════
+// DAR DE BAJA
+// ════════════════════════════════════════
+async function darBaja(col, id) {
+  if (!confirm("¿Dar de baja este usuario? Se eliminará permanentemente.")) return;
+  try {
+    await db.collection(col).doc(id).delete();
+    toast("Usuario eliminado", "ok");
+    await loadAll();
+  } catch(e) { toast("Error: " + e.message, "err"); }
+}
+
+// ════════════════════════════════════════
+// MODAL MATERIAS
+// ════════════════════════════════════════
+let currentTeacherId = null;
+let currentClases    = [];
+let mmGradeFilter    = "";
+
+function abrirMaterias(id, nombre) {
+  currentTeacherId = id;
+  document.getElementById("mm-nombre").textContent = nombre;
+  document.getElementById("mm-id").value = id;
+  const doc = cacheDocentes.find(d => d.id === id);
+  currentClases = [...(doc?.Clases || [])];
+  mmGradeFilter = "";
+  document.querySelectorAll(".grade-tab").forEach(t => t.classList.toggle("active", !t.dataset.grade));
+  renderSubjectGrid();
+  renderAssignedTags();
+  openModal("modal-materias");
+}
+
+document.querySelectorAll(".grade-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".grade-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    mmGradeFilter = tab.dataset.grade;
+    renderSubjectGrid();
+  });
+});
+
+function renderSubjectGrid() {
+  const grid = document.getElementById("subject-grid");
+  grid.innerHTML = "";
+  const grades = mmGradeFilter ? [mmGradeFilter] : ["1","2","3"];
+  grades.forEach(g => {
+    if (!mmGradeFilter || grades.length > 1) {
+      const title = document.createElement("div");
+      title.style.cssText = "grid-column:1/-1; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:var(--purple); padding:6px 0 3px; border-bottom:1px solid #ede9fe; margin-bottom:4px;";
+      title.textContent = GRADE_LABELS[g];
+      grid.appendChild(title);
+    }
+    SUBJECTS[g].forEach(sub => {
+      // Store as "Materia (Grado°)" to avoid naming collisions across grades
+      const fullName = `${sub} (${g}°)`;
+      const label = document.createElement("label");
+      label.className = "subject-check" + (currentClases.includes(fullName) ? " checked" : "");
+      label.innerHTML = `<input type="checkbox" value="${fullName}" ${currentClases.includes(fullName) ? "checked" : ""}> ${sub}`;
+      label.querySelector("input").addEventListener("change", e => {
+        if (e.target.checked) {
+          if (!currentClases.includes(fullName)) currentClases.push(fullName);
+          label.classList.add("checked");
+        } else {
+          currentClases = currentClases.filter(c => c !== fullName);
+          label.classList.remove("checked");
+        }
+        renderAssignedTags();
+      });
+      grid.appendChild(label);
+    });
+  });
+}
+
+function renderAssignedTags() {
+  const container = document.getElementById("assigned-tags");
+  document.getElementById("mm-count").textContent = currentClases.length;
+  if (!currentClases.length) {
+    container.innerHTML = `<span style="font-size:0.82rem;color:#aaa;">Ninguna asignada aún</span>`;
+    return;
+  }
+  container.innerHTML = currentClases.map(c =>
+    `<span class="tag">${h(c)}<button onclick="removeClase('${c.replace(/'/g,"\\'")}')">×</button></span>`
+  ).join("");
+}
+
+function removeClase(name) {
+  currentClases = currentClases.filter(c => c !== name);
+  renderSubjectGrid();
+  renderAssignedTags();
+}
+
+document.getElementById("btn-mm-save").onclick = async () => {
+  if (!currentTeacherId) return;
+  const btn = document.getElementById("btn-mm-save");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner-sm"></span> Guardando…`;
+  try {
+    await db.collection("Usuarios").doc(currentTeacherId).update({ Clases: currentClases });
+    const idx = cacheDocentes.findIndex(d => d.id === currentTeacherId);
+    if (idx !== -1) cacheDocentes[idx].Clases = [...currentClases];
+    toast("Materias guardadas correctamente", "ok");
+    closeModal("modal-materias");
+    renderDocentes();
+  } catch(e) { toast("Error: " + e.message, "err"); }
+  btn.disabled = false;
+  btn.innerHTML = "💾 Guardar Materias";
+};
+
+// ════════════════════════════════════════
+// REGISTRO MANUAL
+// ════════════════════════════════════════
+document.getElementById("m-rol").addEventListener("change", e => {
+  const show = e.target.value === "Alumno";
+  document.getElementById("m-grado-wrap").style.display = show ? "" : "none";
+  document.getElementById("m-grupo-wrap").style.display = show ? "" : "none";
+});
+
+document.getElementById("frm-manual").addEventListener("submit", async e => {
+  e.preventDefault();
+  const nombre    = document.getElementById("m-nombre").value.trim();
+  const matricula = document.getElementById("m-matricula").value.trim();
+  const correo    = document.getElementById("m-correo").value.trim();
+  const rol       = document.getElementById("m-rol").value;
+  const grado     = document.getElementById("m-grado").value;
+  const grupo     = document.getElementById("m-grupo").value;
+  const btn       = e.submitter;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner-sm"></span> Registrando…`;
+  try {
+    await db.collection("Usuarios").doc(matricula).set({
+      Nombre: nombre, Correo: correo, Matricula: matricula,
+      Contraseña: correo,
+      Rol: rol,
+      Grado: rol === "Alumno" ? grado : "",
+      Grupo: rol === "Alumno" ? grupo : "",
+      Clases: [], Aprobado: true,
+      FechaRegistro: new Date().toISOString()
+    });
+    toast(`${nombre} registrado como ${rol}`, "ok");
+    e.target.reset();
+    await loadAll();
+  } catch(err) { toast("Error: " + err.message, "err"); }
+  btn.disabled = false;
+  btn.innerHTML = "✚ Registrar Usuario";
+});
+
+// ════════════════════════════════════════
+// CSV IMPORT
+// ════════════════════════════════════════
+let csvRows = [];
+const dropzone = document.getElementById("dropzone");
+const csvHidden = document.getElementById("csv-hidden");
+
+dropzone.addEventListener("click", () => csvHidden.click());
+dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("dragover"); });
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+dropzone.addEventListener("drop", e => { e.preventDefault(); dropzone.classList.remove("dragover"); handleCSV(e.dataTransfer.files[0]); });
+csvHidden.addEventListener("change", e => { handleCSV(e.target.files[0]); e.target.value = ""; });
+
+function normalizeKey(k) {
+  return k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"");
+}
+
+// Detect if CSV uses comma or semicolon
+function detectSep(line) {
+  const commas = (line.match(/,/g)||[]).length;
+  const semics  = (line.match(/;/g)||[]).length;
+  return semics > commas ? ";" : ",";
+}
+
+async function handleCSV(file) {
+  if (!file) return;
+  const text = await file.text();
+  const rawLines = text.trim().split(/\r?\n/);
+  if (rawLines.length < 2) { toast("El archivo CSV está vacío o tiene solo una línea", "err"); return; }
+
+  const sep = detectSep(rawLines[0]);
+  const splitLine = line => line.split(sep).map(c => c.trim().replace(/^["']|["']$/g,""));
+
+  const rawHeaders = splitLine(rawLines[0]);
+  const headers    = rawHeaders.map(normalizeKey);
+
+  const findCol = (keys) => {
+    for (const k of keys) {
+      const idx = headers.indexOf(normalizeKey(k));
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
+
+  const iNombre    = findCol(["nombre completo","nombre","name","nombrecompleto"]);
+  const iCorreo    = findCol(["correo","email","correoelectronico","e-mail"]);
+  const iMatricula = findCol(["matricula","matricula","id","folio","no"]);
+  const iGrado     = findCol(["grado","grade","año","ano","nivel"]);
+  const iGrupo     = findCol(["grupo","group","salon","seccion"]);
+
+  // Warn about missing columns
+  const missing = [];
+  if (iNombre    < 0) missing.push("Nombre");
+  if (iCorreo    < 0) missing.push("Correo");
+  if (iMatricula < 0) missing.push("Matrícula");
+  if (iGrado     < 0) missing.push("Grado");
+  if (iGrupo     < 0) missing.push("Grupo");
+  if (missing.length) {
+    toast(`⚠️ Columnas no detectadas: ${missing.join(", ")}. Revisa el encabezado del CSV.`, "err");
+  }
+
+  csvRows = [];
+  for (let i = 1; i < rawLines.length; i++) {
+    const cols = splitLine(rawLines[i]);
+    if (cols.length < 2 || !cols.join("").trim()) continue;
+    const mat = iMatricula >= 0 ? cols[iMatricula] : "";
+    if (!mat) continue; // skip rows without matricula
+    csvRows.push({
+      Nombre:    iNombre    >= 0 ? cols[iNombre]    : "—",
+      Correo:    iCorreo    >= 0 ? cols[iCorreo]    : "",
+      Matricula: mat,
+      Grado:     normalizeGrade(iGrado >= 0 ? cols[iGrado] : ""),
+      Grupo:     normalizeGroup(iGrupo >= 0 ? cols[iGrupo] : "")
+    });
+  }
+
+  // Preview
+  document.getElementById("csv-info").textContent = `${csvRows.length} alumnos detectados en "${file.name}"`;
+  const thead = document.querySelector("#tbl-preview thead");
+  const tbody = document.querySelector("#tbl-preview tbody");
+  thead.innerHTML = `<tr>${["Matrícula","Nombre","Correo","Grado","Grupo"].map(c=>`<th>${c}</th>`).join("")}</tr>`;
+  const previewRows = csvRows.slice(0, 10);
+  tbody.innerHTML = previewRows.map(r =>
+    `<tr>
+      <td><code style="font-weight:700;color:var(--purple);">${h(r.Matricula)}</code></td>
+      <td>${h(r.Nombre)}</td>
+      <td style="font-size:0.82rem;color:var(--muted);">${h(r.Correo)}</td>
+      <td>${r.Grado ? `<span class="chip chip-purple">${r.Grado}°</span>` : `<span style="color:#f87171;">⚠ —</span>`}</td>
+      <td>${r.Grupo ? `<span class="chip chip-gray">${r.Grupo}</span>` : `<span style="color:#f87171;">⚠ —</span>`}</td>
+    </tr>`
+  ).join("") + (csvRows.length > 10 ? `<tr class="tbl-empty"><td colspan="5">… y ${csvRows.length-10} más</td></tr>` : "");
+  document.getElementById("csv-preview").style.display = "block";
+  document.getElementById("csv-status").textContent = "";
+}
+
+document.getElementById("btn-import-confirm").onclick = async () => {
+  if (!csvRows.length) return;
+  const btn    = document.getElementById("btn-import-confirm");
+  const status = document.getElementById("csv-status");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner-sm"></span> Importando…`;
+
+  try {
+    const BATCH_SIZE = 400;
+    let total = 0;
+    for (let i = 0; i < csvRows.length; i += BATCH_SIZE) {
+      const batch = db.batch();
+      csvRows.slice(i, i + BATCH_SIZE).forEach(row => {
+        const ref = db.collection("Usuarios").doc(row.Matricula);
+        batch.set(ref, {
+          Nombre:        row.Nombre,
+          Correo:        row.Correo,
+          Matricula:     row.Matricula,
+          Contraseña:    row.Correo,
+          Rol:           "Alumno",          // ALWAYS Alumno from CSV
+          Grado:         row.Grado,
+          Grupo:         row.Grupo,
+          Clases:        [],
+          Aprobado:      true,
+          FechaRegistro: new Date().toISOString()
+        }, { merge: true });
+        total++;
+      });
+      await batch.commit();
+    }
+    status.textContent = `✅ ${total} alumnos importados correctamente.`;
+    status.style.color = "var(--green)";
+    toast(`${total} alumnos importados`, "ok");
+    csvRows = [];
+    document.getElementById("csv-preview").style.display = "none";
+    await loadAll();
+  } catch(e) {
+    status.textContent = "❌ Error: " + e.message;
+    status.style.color = "var(--red)";
+    toast("Error al importar: " + e.message, "err");
+  }
+  btn.disabled = false;
+  btn.innerHTML = "⬆ Importar al Sistema";
+};
+
+// ════════════════════════════════════════
+// HELPER: HTML escape
+// ════════════════════════════════════════
+function h(str) {
+  if (!str) return "";
+  return String(str).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+loadAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaderoChecker - Iniciar Sesión</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <img src="./home_files/db2c647cf06bb10a8906a80f06464546.png" class="bg-decoration bg-decoration-1" alt="">
+  <img src="./home_files/db2c647cf06bb10a8906a80f06464546.png" class="bg-decoration bg-decoration-2" alt="">
+  <img src="./home_files/db2c647cf06bb10a8906a80f06464546.png" class="bg-decoration bg-decoration-3" alt="">
+  <img src="./home_files/db2c647cf06bb10a8906a80f06464546.png" class="bg-decoration bg-decoration-4" alt="">
+  <div id="toast-container" class="toast-container"></div>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <img src="./home_files/ad0ab9a6c6a3c1caac40fecc3ba9fc1f.png" class="auth-logo" alt="MaderoChecker Logo">
+      <h2 class="auth-title">MaderoChecker</h2>
+
+      <form id="login-form" class="auth-form">
+        <div class="form-group">
+          <label for="username" class="form-label">Matrícula / Usuario</label>
+          <input type="text" id="username" class="form-input" placeholder="Ingresa tu matrícula" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="password" class="form-label">Contraseña</label>
+          <input type="password" id="password" class="form-input" placeholder="Alumnos: ingresa tu correo institucional" required autocomplete="current-password">
+          <small style="color:rgba(255,255,255,0.7); font-size:0.78rem; margin-top:4px; display:block;">
+            💡 Alumnos: tu contraseña es tu correo de contacto registrado.
+          </small>
+        </div>
+        <button type="submit" id="btn-login" class="btn-primary">
+          <span class="btn-text">Iniciar Sesión</span>
+        </button>
+      </form>
+
+      <button type="button" id="btn-goto-register" class="btn-secondary">
+        Crear una cuenta
+      </button>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-init.js"></script>
+  <script>
+    const loginForm = document.getElementById("login-form");
+    const btnLogin  = document.getElementById("btn-login");
+    const toastContainer = document.getElementById("toast-container");
+
+    sessionStorage.clear();
+
+    function showToast(msg, type = "error") {
+      const t = document.createElement("div");
+      t.className = `toast toast-${type === "success" ? "success" : "error"}`;
+      t.innerHTML = `<span>${msg}</span><span style="cursor:pointer;margin-left:10px;font-weight:bold;" onclick="this.parentElement.remove()">×</span>`;
+      toastContainer.appendChild(t);
+      setTimeout(() => { t.classList.add("slide-out"); t.addEventListener("animationend", () => t.remove()); }, 4000);
+    }
+
+    document.getElementById("btn-goto-register").addEventListener("click", () => {
+      window.location.href = "registro.html";
+    });
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const matricula = document.getElementById("username").value.trim();
+      const pass      = document.getElementById("password").value.trim();
+
+      if (!matricula || !pass) { showToast("Completa todos los campos."); return; }
+
+      const orig = btnLogin.innerHTML;
+      btnLogin.disabled = true;
+      btnLogin.innerHTML = `<div class="spinner"></div>`;
+
+      try {
+        // ── 1. Comprobar Admin ──────────────────────────────────
+        const adminSnap = await db.collection("Admin").get();
+        let isAdmin = false;
+        adminSnap.forEach(d => {
+          const data = d.data();
+          if (data.Usuario === matricula && data.Contraseña === pass) isAdmin = true;
+        });
+
+        if (isAdmin) {
+          sessionStorage.setItem("userRole", "admin");
+          sessionStorage.setItem("username", matricula);
+          showToast("¡Bienvenido, Administrador!", "success");
+          setTimeout(() => window.location.href = "admin.html", 900);
+          return;
+        }
+
+        // ── 2. Comprobar Usuarios (fetch siempre por Matricula) ──
+        const userSnap = await db.collection("Usuarios").doc(matricula).get();
+
+        if (userSnap.exists) {
+          const u = userSnap.data();
+          if (u.Contraseña === pass) {
+            sessionStorage.setItem("userRole", u.Rol || "Alumno");
+            sessionStorage.setItem("username", matricula);
+            sessionStorage.setItem("fullName", u.Nombre || "Usuario");
+            showToast("¡Inicio de sesión exitoso!", "success");
+            setTimeout(() => {
+              if (u.Rol === "Docente" || u.Rol === "Docente (tutor)") {
+                window.location.href = "docente-dashboard.html";
+              } else {
+                window.location.href = "alumno-dashboard.html";
+              }
+            }, 900);
+            return;
+          }
+        }
+
+        showToast("Matrícula o contraseña incorrectos.");
+        btnLogin.disabled = false;
+        btnLogin.innerHTML = orig;
+
+      } catch (err) {
+        console.error(err);
+        showToast("Error de conexión: " + err.message);
+        btnLogin.disabled = false;
+        btnLogin.innerHTML = orig;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+PROYECTO: Sistema Escolar Firebase
+
+OBJETIVO:
+Actualizar docente-dashboard.html para convertirlo en un panel completo de gestión académica.
+
+REQUISITOS:
+
+1. DATOS DEL DOCENTE
+Al iniciar sesión obtener desde Firebase:
+
+- Nombre completo
+- Correo
+- Rol
+  - Docente
+  - Docente Tutor
+  - Administrador
+
+Mostrar:
+
+Hola, [Nombre Completo]
+Correo: [correo]
+Estatus: [rol]
+
+No mostrar únicamente "Hola Docente".
+
+----------------------------------------
+
+2. CLASES ASIGNADAS
+
+Leer automáticamente el arreglo "Clases" del documento del docente en Firebase.
+
+Ejemplo:
+
+Clases:
+- Biología (1°)
+- Informática I (1°)
+- Informática II (2°)
+
+Crear tarjetas dinámicas para cada clase.
+
+----------------------------------------
+
+3. PLANEACIÓN DE PARCIALES
+
+Para cada clase permitir:
+
++ Crear Parcial
++ Editar Parcial
++ Eliminar Parcial
++ Consultar Parcial
+
+Estructura:
+
+Clase
+ └── Parcial 1
+      ├── Examen 30%
+      ├── Tareas 20%
+      ├── Proyecto 30%
+      └── Participación 20%
+
+Validaciones:
+
+- La suma debe ser exactamente 100%.
+- No permitir guardar si excede o falta porcentaje.
+- Mostrar barra visual del porcentaje acumulado.
+
+----------------------------------------
+
+4. BANCO DE CRITERIOS
+
+Permitir crear criterios personalizados:
+
+Ejemplos:
+
+- Examen
+- Proyecto
+- Práctica
+- Tarea
+- Investigación
+- Participación
+- Exposición
+- Laboratorio
+
+El docente puede:
+
++ Crear
++ Editar
++ Eliminar
+
+Guardar en Firebase.
+
+----------------------------------------
+
+5. GESTIÓN DE TAREAS
+
+Por cada criterio tipo "Tarea":
+
+Mostrar:
+
+Tienes X tareas registradas.
+
+Permitir:
+
++ Nueva tarea
++ Editar tarea
++ Eliminar tarea
+
+Campos:
+
+- Nombre
+- Descripción
+- Fecha
+- Valor
+
+----------------------------------------
+
+6. CAPTURA DE CALIFICACIONES
+
+Seleccionar:
+
+Clase
+→ Parcial
+→ Criterio
+
+Mostrar lista de alumnos.
+
+Registrar:
+
+Calificación
+Observaciones
+
+Guardar automáticamente en Firebase.
+
+----------------------------------------
+
+7. COMENTARIOS POR ALUMNO
+
+Cada parcial debe incluir:
+
+Comentarios Docente
+
+Ejemplos:
+
+"Excelente participación."
+"Necesita mejorar hábitos de estudio."
+
+Permitir:
+
++ Agregar
++ Editar
++ Eliminar
+
+Guardar en Firebase.
+
+----------------------------------------
+
+8. CONSULTA DE ALUMNOS
+
+Botón:
+
+[Consultar Alumno]
+
+Funciones:
+
+Buscar por:
+
+- Matrícula
+- Nombre
+
+Mostrar:
+
+- Nombre
+- Matrícula
+- Grado
+- Grupo
+- Calificaciones
+- Promedio
+- Comentarios
+
+----------------------------------------
+
+9. FIREBASE
+
+Diseñar estructura optimizada:
+
+Usuarios
+  └── Docente
+
+Clases
+  └── Clase
+
+Parciales
+  └── Parcial
+
+Criterios
+  └── Criterio
+
+Tareas
+  └── Tarea
+
+Calificaciones
+  └── Alumno
+
+Comentarios
+  └── Alumno
+
+Utilizar:
+
+- Firestore
+- Firebase Auth
+- Consultas asíncronas
+- Manejo de errores
+- Carga dinámica
+
+----------------------------------------
+
+10. INTERFAZ
+
+Diseño moderno tipo dashboard.
+
+Panel izquierdo:
+- Inicio
+- Mis Clases
+- Parciales
+- Tareas
+- Alumnos
+- Reportes
+
+Panel principal dinámico.
+
+Responsive para PC y móvil.
+
+----------------------------------------
+
+11. CÓDIGO
+
+Generar:
+
+- HTML
+- CSS
+- JavaScript ES6
+- Firebase v10 Modular
+
+No eliminar funcionalidades existentes.
+
+Mantener compatibilidad con la estructura actual del proyecto.
+
+Entregar código completo listo para copiar y pegar.
+Si el documento del docente contiene:
+
+Nombre
+Correo
+Rol
+Clases[]
+
+entonces el dashboard debe cargarse automáticamente sin configuraciones manuales.
+
+Ejemplo Firebase:
+
+Usuarios
+ └── 1342
+      Nombre: Jaime Dominguez Cordova
+      Correo: jaime.dominguez@imm.edu.mx
+      Rol: Docente Tutor
+      Clases:
+        - Biología (1°)
+        - Informática I (1°)
+        - Informática II (2°)
+
+Resultado visual:
+
+Hola Jaime Dominguez Cordova
+jaime.dominguez@imm.edu.mx
+Docente Tutor
+
+Mis clases:
+[Biología (1°)]
+[Informática I (1°)]
+[Informática II (2°)]
