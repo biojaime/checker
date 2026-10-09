@@ -590,7 +590,7 @@
                 <select class="fselect" id="boleta-grupo" disabled><option value="">— Grupo —</option></select>
               </div>
               <div class="fgroup" style="min-width:140px;">
-                <label for="boleta-parcial">Parcial</label>
+                <label for="boleta-parcial">Parcial / momento</label>
                 <select class="fselect" id="boleta-parcial" disabled><option value="">— Parcial —</option></select>
               </div>
               <div class="fgroup" style="min-width:200px; flex:1;">
@@ -599,7 +599,7 @@
               </div>
               <button class="btn btn-primary btn-lg" id="btn-generar-boleta" onclick="generarBoleta()" disabled>Generar boleta</button>
             </div>
-            <p style="color:var(--muted); margin-top:12px; font-size:0.85rem;">La boleta incluye criterios, calificaciones capturadas y avance ponderado. Usa Imprimir para guardar como PDF.</p>
+            <p style="color:var(--muted); margin-top:12px; font-size:0.85rem;">Elige “Todo el grupo” para imprimir una boleta por alumno en un solo documento. Parcial 1 corresponde al Momento 1, Parcial 2 al Momento 2 y Parcial 3 al Momento 3.</p>
           </div>
         </div>
       </div>
@@ -737,11 +737,15 @@
     <div class="modal-body">
       <div id="report-student-heading" style="font-weight:800; margin-bottom:12px;"></div>
       <div class="report-grid">
-        <div style="height:260px; position:relative;"><canvas id="report-chart" aria-label="Porcentajes de criterios del parcial"></canvas></div>
+        <div><div style="height:230px; position:relative;"><canvas id="report-chart" aria-label="Calificaciones de todos los criterios de 0 a 10"></canvas></div><div id="report-exam-summary" style="text-align:center;font-size:.85rem;font-weight:700;color:var(--muted);"></div></div>
         <div>
           <div id="report-total" style="font-size:1.1rem; font-weight:800; margin-bottom:10px;"></div>
+          <div id="report-level" style="font-weight:800;margin-bottom:10px;"></div>
           <div class="table-wrap"><table class="tbl"><thead><tr><th>Criterio</th><th>Peso</th><th>Nota</th><th>Aporta</th></tr></thead><tbody id="report-criteria"></tbody></table></div>
         </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:.76rem;">
+        <span style="color:#dc2626;font-weight:700;">&lt; 6 Deficiente</span><span style="color:#b45309;font-weight:700;">6–6.9 Necesita apoyo</span><span style="color:#15803d;font-weight:700;">7–7.9 Puede mejorar</span><span style="color:#0f766e;font-weight:700;">8–8.9 Eficiente</span><span style="color:#2563eb;font-weight:700;">9–9.9 Bueno</span><span style="color:#7c3aed;font-weight:700;">10 Excelente</span>
       </div>
       <div class="fgroup" style="margin-top:16px;">
         <label>Comentarios y observaciones del docente</label>
@@ -768,11 +772,12 @@
         <input class="finput" type="email" id="report-parent-email" placeholder="familia@ejemplo.com">
         <label style="display:flex; align-items:center; gap:8px; margin-top:8px;"><input type="checkbox" id="report-link-parent"> Guardar correo vinculado al alumno</label>
       </div>
-      <p style="font-size:0.8rem; color:var(--muted);">El envío se autoriza en Google; MaderoChecker no solicita ni guarda la contraseña del docente.</p>
+      <p style="font-size:0.8rem; color:var(--muted);">“Abrir correo” prepara el mensaje en tu aplicación de correo; tú revisas y lo envías. “Enviar con Gmail” requiere autorización de Google. Se incluirá copia al correo del docente.</p>
     </div>
     <div class="modal-foot">
       <button class="btn btn-gray" onclick="closeModal('modal-reporte')">Cerrar</button>
-      <button class="btn btn-primary btn-lg" id="btn-send-report" onclick="sendIndividualReport()">Enviar reporte</button>
+      <button class="btn btn-gray" id="btn-open-email" onclick="openReportEmail()">Abrir correo</button>
+      <button class="btn btn-primary btn-lg" id="btn-send-report" onclick="sendIndividualReport()">Enviar con Gmail</button>
     </div>
   </div>
 </div>
@@ -862,6 +867,25 @@ function closeModal(id) { document.getElementById(id).classList.remove("open"); 
 function h(s) {
   if (!s) return "";
   return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function getPeriodLabel(parcial) {
+  const number = Number(parcial?.Numero);
+  return Number.isInteger(number) && number > 0
+    ? `Parcial ${number} · Momento ${number}`
+    : "Parcial / momento";
+}
+
+function getGradeBand(value) {
+  if (value === null || value === undefined || value === "") return { label: "Sin calificación", color: "#6b7280" };
+  const grade = Number(value);
+  if (!Number.isFinite(grade)) return { label: "Sin calificación", color: "#6b7280" };
+  if (grade < 6) return { label: "Deficiente", color: "#dc2626" };
+  if (grade < 7) return { label: "Necesita apoyo", color: "#b45309" };
+  if (grade < 8) return { label: "Puede mejorar", color: "#15803d" };
+  if (grade < 9) return { label: "Eficiente", color: "#0f766e" };
+  if (grade < 10) return { label: "Bueno", color: "#2563eb" };
+  return { label: "Excelente", color: "#7c3aed" };
 }
 
 // ════════════════════════════════════════
@@ -1592,7 +1616,7 @@ async function onBoletaClaseChange() {
   if (!clase) return;
 
   const parciales = cacheParciales.filter(item => item.Clase === clase).sort((a,b) => Number(a.Numero) - Number(b.Numero));
-  parciales.forEach(item => parcialSelect.add(new Option(`Parcial ${item.Numero}`, item.id)));
+  parciales.forEach(item => parcialSelect.add(new Option(getPeriodLabel(item), item.id)));
   parcialSelect.disabled = !parciales.length;
   const gradeMatch = clase.match(/\((\d)°\)/);
   const grupos = gradeMatch ? await loadGroupsForGrade(gradeMatch[1]) : [];
@@ -1613,8 +1637,10 @@ async function onBoletaGrupoChange() {
     boletaAlumnos = snapshot.docs.map(doc => ({ id:doc.id, ...doc.data() }))
       .sort((a,b) => nombreListaAlumno(a).localeCompare(nombreListaAlumno(b), "es", { sensitivity:"base" }));
     const select = document.getElementById("boleta-alumno");
+    select.add(new Option(`Todo el grupo (${boletaAlumnos.length})`, "__all__"));
     boletaAlumnos.forEach(alumno => select.add(new Option(nombreListaAlumno(alumno), alumno.Matricula || alumno.id)));
     select.disabled = !boletaAlumnos.length;
+    select.value = boletaAlumnos.length ? "__all__" : "";
   } catch (error) {
     toast("No se pudieron cargar los alumnos: " + error.message, "err");
   }
@@ -1640,42 +1666,60 @@ async function generarBoleta() {
   const grupo = document.getElementById("boleta-grupo").value;
   const parcialId = document.getElementById("boleta-parcial").value;
   const matricula = document.getElementById("boleta-alumno").value;
-  const alumno = boletaAlumnos.find(item => (item.Matricula || item.id) === matricula);
   const parcial = cacheParciales.find(item => item.id === parcialId);
-  if (!alumno || !parcial) return;
+  const alumnos = matricula === "__all__"
+    ? boletaAlumnos
+    : boletaAlumnos.filter(item => (item.Matricula || item.id) === matricula);
+  if (!alumnos.length || !parcial) return;
   const printWindow = window.open("", "_blank");
   if (!printWindow) { toast("Permite ventanas emergentes para generar la boleta", "warn"); return; }
   printWindow.document.write("<p style='font-family:sans-serif;padding:24px'>Generando boleta…</p>");
 
   try {
-    const snapshot = await db.collection("Calificaciones")
-      .where("DocenteId", "==", DOCENTE_ID)
-      .where("AlumnoMatricula", "==", matricula)
-      .get();
-    const grades = new Map(snapshot.docs.map(doc => doc.data())
-      .filter(record => record.Clase === clase && record.ParcialId === parcialId)
-      .map(record => [record.Criterio, record]));
+    const snapshot = await db.collection("Calificaciones").where("DocenteId", "==", DOCENTE_ID).get();
     const criteria = parcial.Criterios || [];
-    const capturedWeight = criteria.reduce((sum, criterion) => sum + (grades.has(criterion.nombre) ? Number(criterion.porcentaje) || 0 : 0), 0);
-    const weightedGrade = criteria.reduce((sum, criterion) => {
-      const grade = Number(grades.get(criterion.nombre)?.Calificacion);
-      return sum + (Number.isFinite(grade) ? grade * (Number(criterion.porcentaje) || 0) / 100 : 0);
-    }, 0);
-    const rows = criteria.map(criterion => {
-      const record = grades.get(criterion.nombre);
-      const grade = record?.Calificacion;
-      const contribution = grade === undefined ? "—" : (Number(grade) * (Number(criterion.porcentaje) || 0) / 100).toFixed(2);
-      return `<tr><td>${h(criterion.nombre)}</td><td>${Number(criterion.porcentaje) || 0}%</td><td>${grade === undefined ? "Pendiente" : h(grade)}</td><td>${contribution}</td><td>${h(record?.Observaciones || record?.Comentario || "—")}</td></tr>`;
+    const pages = alumnos.map(alumno => {
+      const alumnoId = alumno.Matricula || alumno.id;
+      const grades = new Map(snapshot.docs.map(doc => doc.data())
+        .filter(record => record.AlumnoMatricula === alumnoId && record.Clase === clase && record.ParcialId === parcialId)
+        .map(record => [record.Criterio, record]));
+      const capturedWeight = criteria.reduce((sum, criterion) => {
+        const grade = Number(grades.get(criterion.nombre)?.Calificacion);
+        return sum + (Number.isFinite(grade) ? Number(criterion.porcentaje) || 0 : 0);
+      }, 0);
+      const weightedGrade = criteria.reduce((sum, criterion) => {
+        const grade = Number(grades.get(criterion.nombre)?.Calificacion);
+        return sum + (Number.isFinite(grade) ? grade * (Number(criterion.porcentaje) || 0) / 100 : 0);
+      }, 0);
+      const exam = criteria.find(criterion => /examen/i.test(criterion.nombre));
+      const examGradeValue = Number(grades.get(exam?.nombre)?.Calificacion);
+      const examGrade = Number.isFinite(examGradeValue) ? examGradeValue : null;
+      const examWidth = examGrade === null ? 0 : Math.max(0, Math.min(100, examGrade * 10));
+      const rows = criteria.map(criterion => {
+        const record = grades.get(criterion.nombre);
+        const value = Number(record?.Calificacion);
+        const validGrade = Number.isFinite(value);
+        const band = getGradeBand(value);
+        const contribution = validGrade ? (value * (Number(criterion.porcentaje) || 0) / 100).toFixed(2) : "—";
+        return `<tr><td>${h(criterion.nombre)}</td><td>${Number(criterion.porcentaje) || 0}%</td><td>${validGrade ? value.toFixed(1) : "Pendiente"}${validGrade ? ` <small style="color:${band.color};font-weight:bold">${band.label}</small>` : ""}</td><td>${contribution}</td><td>${h(record?.Observaciones || record?.Comentario || "—")}</td></tr>`;
+      }).join("");
+      const complete = criteria.length > 0 && capturedWeight === 100;
+      const overallBand = getGradeBand(weightedGrade);
+      return `<section class="boleta-page">
+        <h1>Boleta de calificaciones</h1><p>${h(clase)} · ${h(getPeriodLabel(parcial))} · Grupo ${h(grupo)}</p>
+        <p><strong>${h(nombreListaAlumno(alumno))}</strong> · Grado ${h(alumno.Grado || "—")} · Matrícula ${h(alumnoId)}</p>
+        ${exam ? `<div class="exam"><strong>Examen (${Number(exam.porcentaje) || 0}% del parcial): ${examGrade === null ? "Pendiente" : `${examGrade.toFixed(1)} / 10`}</strong><div class="track"><i style="width:${examWidth}%"></i></div></div>` : ""}
+        <table><thead><tr><th>Criterio</th><th>Peso</th><th>Calificación</th><th>Aporta</th><th>Observaciones</th></tr></thead><tbody>${rows || "<tr><td colspan='5'>Sin criterios configurados.</td></tr>"}</tbody></table>
+        <p class="total">${complete ? "Calificación ponderada" : "Avance ponderado"}: ${weightedGrade.toFixed(2)} / 10</p>
+        <p class="level" style="color:${complete ? overallBand.color : "#64748b"}">${complete ? overallBand.label : `Capturado: ${capturedWeight}% de 100%`}</p>
+      </section>`;
     }).join("");
     printWindow.document.open();
-    printWindow.document.write(`<!doctype html><html lang="es"><meta charset="utf-8"><title>Boleta - ${h(nombreListaAlumno(alumno))}</title>
-      <style>body{font:14px Arial,sans-serif;color:#17202a;margin:36px}h1{font-size:22px;margin-bottom:6px}p{margin:5px 0;color:#475569}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{padding:10px;border:1px solid #cbd5e1;text-align:left}th{background:#f1f5f9}.total{margin-top:22px;font-size:18px;font-weight:bold}.muted{color:#64748b}@media print{button{display:none}}</style>
-      <h1>Boleta de calificaciones</h1><p>${h(clase)} · Parcial ${h(parcial.Numero)} · Grupo ${h(grupo)}</p>
-      <p><strong>${h(nombreListaAlumno(alumno))}</strong> · Matrícula ${h(matricula)}</p>
-      <table><thead><tr><th>Criterio</th><th>Peso</th><th>Calificación</th><th>Aporta</th><th>Observaciones</th></tr></thead><tbody>${rows || "<tr><td colspan='5'>Sin criterios configurados.</td></tr>"}</tbody></table>
-      <p class="total">${capturedWeight === 100 ? "Calificación ponderada" : "Avance ponderado"}: ${weightedGrade.toFixed(2)} / 10</p>
-      <p class="muted">Capturado: ${capturedWeight}% de 100%</p><button onclick="window.print()">Imprimir / Guardar PDF</button></html>`);
+    printWindow.document.write(`<!doctype html><html lang="es"><meta charset="utf-8"><title>Boletas - ${h(clase)} ${h(getPeriodLabel(parcial))} ${h(grupo)}</title>
+      <style>body{font:14px Arial,sans-serif;color:#17202a;margin:36px}h1{font-size:22px;margin-bottom:6px}p{margin:5px 0;color:#475569}table{width:100%;border-collapse:collapse;margin-top:18px}th,td{padding:9px;border:1px solid #cbd5e1;text-align:left}th{background:#f1f5f9}.total{margin-top:18px;font-size:18px;font-weight:bold}.level{font-size:16px;font-weight:bold}.exam{margin-top:20px}.track{height:14px;background:#e5e7eb;border-radius:7px;margin-top:7px;overflow:hidden}.track i{display:block;height:100%;background:#0284c7}@media print{button{display:none}.boleta-page+.boleta-page{break-before:page;page-break-before:always}}</style>
+      ${pages}<button onclick="window.print()">Imprimir / Guardar PDF</button></html>`);
     printWindow.document.close();
+    printWindow.focus();
   } catch (error) {
     printWindow.close();
     toast("No se pudo generar la boleta: " + error.message, "err");
@@ -1789,7 +1833,9 @@ function openIndividualReport(reportKey) {
   const { alumno, parcial, clase, items } = activeIndividualReport;
   const criteria = (parcial?.Criterios || []).map(criterion => {
     const gradeRecord = items.find(item => item.Criterio === criterion.nombre);
-    const grade = gradeRecord?.Calificacion === undefined ? null : Number(gradeRecord.Calificacion);
+    const rawGrade = gradeRecord?.Calificacion;
+    const parsedGrade = rawGrade === undefined || rawGrade === null || rawGrade === "" ? null : Number(rawGrade);
+    const grade = parsedGrade !== null && Number.isFinite(parsedGrade) ? parsedGrade : null;
     return {
       name: criterion.nombre,
       percentage: Number(criterion.porcentaje) || 0,
@@ -1804,15 +1850,21 @@ function openIndividualReport(reportKey) {
   const weightedGrade = criteria.reduce((total, criterion) => total + (criterion.contribution || 0), 0);
   const complete = criteria.length > 0 && capturedWeight === assignedWeight && assignedWeight === 100;
 
-  document.getElementById("report-student-heading").textContent = `${alumno.Nombre || "Alumno"} · ${clase} · Parcial ${parcial?.Numero || "—"}`;
+  document.getElementById("report-student-heading").textContent = `${alumno.Nombre || "Alumno"} · Grado ${alumno.Grado || "—"} · Grupo ${alumno.Grupo || "—"} · ${clase} · ${getPeriodLabel(parcial)}`;
   document.getElementById("report-total").textContent = complete
     ? `Calificación ponderada: ${weightedGrade.toFixed(2)} / 10`
     : `Avance ponderado: ${weightedGrade.toFixed(2)} / 10 · Capturado ${capturedWeight}% de ${assignedWeight}%`;
-  document.getElementById("report-criteria").innerHTML = criteria.map(criterion => `<tr>
-    <td>${h(criterion.name)}</td><td>${criterion.percentage}%</td>
-    <td>${criterion.grade === null ? "Pendiente" : criterion.grade.toFixed(1)}</td>
-    <td>${criterion.contribution === null ? "—" : criterion.contribution.toFixed(2)}</td>
-  </tr>`).join("") || `<tr><td colspan="4">Este parcial no tiene porcentajes configurados.</td></tr>`;
+  const overallBand = getGradeBand(weightedGrade);
+  document.getElementById("report-level").textContent = complete ? overallBand.label : "Clasificación disponible al completar la captura";
+  document.getElementById("report-level").style.color = complete ? overallBand.color : "#6b7280";
+  document.getElementById("report-criteria").innerHTML = criteria.map(criterion => {
+    const band = getGradeBand(criterion.grade);
+    return `<tr>
+      <td>${h(criterion.name)}</td><td>${criterion.percentage}%</td>
+      <td>${criterion.grade === null ? "Pendiente" : `<strong style="color:${band.color}">${criterion.grade.toFixed(1)} · ${band.label}</strong>`}</td>
+      <td>${criterion.contribution === null ? "—" : criterion.contribution.toFixed(2)}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="4">Este parcial no tiene porcentajes configurados.</td></tr>`;
   const comments = criteria.flatMap(criterion => [
     criterion.comment ? `<p><strong>${h(criterion.name)} · Comentario:</strong> ${h(criterion.comment)}</p>` : "",
     criterion.observations ? `<p><strong>${h(criterion.name)} · Observación:</strong> ${h(criterion.observations)}</p>` : ""
@@ -1828,23 +1880,80 @@ function openIndividualReport(reportKey) {
   updateReportRecipientFields();
 
   if (reportChartInstance) reportChartInstance.destroy();
+  reportChartInstance = null;
   const chartCanvas = document.getElementById("report-chart");
+  const examCriterion = criteria.find(criterion => /examen/i.test(criterion.name));
+  const examGrade = examCriterion?.grade;
+  const examSummary = document.getElementById("report-exam-summary");
+  if (examCriterion && examGrade !== null && Number.isFinite(examGrade)) {
+    const examValue = Math.max(0, Math.min(10, examGrade));
+    const examWeight = examCriterion.percentage;
+    examSummary.textContent = `Examen (${examWeight}%): ${examGrade.toFixed(1)} / 10 · aporta ${(examGrade * examWeight / 100).toFixed(2)} de ${(examWeight / 10).toFixed(1)} puntos`;
+  } else {
+    examSummary.textContent = examCriterion ? "Examen pendiente de calificar" : "No hay criterio llamado Examen en este parcial";
+  }
   if (window.Chart && criteria.length) {
+    chartCanvas.parentElement.style.height = `${Math.max(230, criteria.length * 36)}px`;
     reportChartInstance = new Chart(chartCanvas, {
-      type: "pie",
+      type: "bar",
       data: {
         labels: criteria.map(criterion => `${criterion.name} (${criterion.percentage}%)`),
         datasets: [{
-          data: criteria.map(criterion => criterion.percentage),
-          backgroundColor: ["#0d9488", "#d97706", "#4f46e5", "#dc2626", "#16a34a", "#0284c7", "#be185d"],
-          borderColor: "#ffffff",
-          borderWidth: 2
+          label: "Calificación sobre 10",
+          data: criteria.map(criterion => criterion.grade),
+          backgroundColor: criteria.map(criterion => criterion.grade === null ? "#9ca3af" : getGradeBand(criterion.grade).color),
+          borderColor: criteria.map(criterion => criterion.grade === null ? "#6b7280" : getGradeBand(criterion.grade).color),
+          borderWidth: 1,
+          borderRadius: 4,
+          maxBarThickness: 26
         }]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { right: 34 } },
+        scales: {
+          x: { min: 0, max: 10, ticks: { stepSize: 2 }, title: { display: true, text: "Calificación (0–10)" } },
+          y: { grid: { display: false } }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const criterion = criteria[context.dataIndex];
+                if (criterion.grade === null) return "Pendiente";
+                const band = getGradeBand(criterion.grade);
+                const contribution = criterion.grade * criterion.percentage / 100;
+                return `${criterion.grade.toFixed(1)} / 10 · ${band.label} · Aporta ${contribution.toFixed(2)} puntos`;
+              }
+            }
+          }
+        }
+      },
+      plugins: [{
+        id: "criterion-score-labels",
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart;
+          const bars = chart.getDatasetMeta(0).data;
+          ctx.save();
+          ctx.font = "700 11px Inter, sans-serif";
+          ctx.textBaseline = "middle";
+          criteria.forEach((criterion, index) => {
+            if (criterion.grade === null) return;
+            const position = bars[index].tooltipPosition();
+            const inside = criterion.grade >= 9.2;
+            ctx.fillStyle = inside ? "#ffffff" : "#17202a";
+            ctx.textAlign = inside ? "right" : "left";
+            ctx.fillText(criterion.grade.toFixed(1), position.x + (inside ? -5 : 6), position.y);
+          });
+          ctx.restore();
+        }
+      }]
     });
   } else {
-    document.getElementById("report-total").textContent += " · No se pudo cargar la gráfica.";
+    if (!window.Chart) examSummary.textContent += " · No se pudo cargar la gráfica.";
   }
   openModal("modal-reporte");
 }
@@ -1869,27 +1978,39 @@ function encodeBase64Url(value) {
 
 function buildIndividualReportEmail(recipients) {
   const { alumno, parcial, clase, items } = activeIndividualReport;
-  const criteria = (parcial?.Criterios || []).map(criterion => {
-    const grade = items.find(item => item.Criterio === criterion.nombre)?.Calificacion;
-    return `<tr><td>${h(criterion.nombre)}</td><td>${Number(criterion.porcentaje) || 0}%</td><td>${grade === undefined ? "Pendiente" : h(grade)}</td></tr>`;
+  const criterionList = (parcial?.Criterios || []).map(criterion => {
+    const value = items.find(item => item.Criterio === criterion.nombre)?.Calificacion;
+    const grade = value === undefined || value === null ? null : Number(value);
+    return { name: criterion.nombre, percentage: Number(criterion.porcentaje) || 0, grade };
+  });
+  const criteria = criterionList.map(criterion => {
+    const band = getGradeBand(criterion.grade);
+    return `<tr><td>${h(criterion.name)}</td><td>${criterion.percentage}%</td><td style="color:${band.color};font-weight:bold">${criterion.grade === null || !Number.isFinite(criterion.grade) ? "Pendiente" : `${criterion.grade.toFixed(1)} · ${h(band.label)}`}</td></tr>`;
   }).join("");
+  const capturedWeight = criterionList.filter(criterion => criterion.grade !== null && Number.isFinite(criterion.grade)).reduce((sum, criterion) => sum + criterion.percentage, 0);
+  const weightedGrade = criterionList.reduce((sum, criterion) => sum + (criterion.grade !== null && Number.isFinite(criterion.grade) ? criterion.grade * criterion.percentage / 100 : 0), 0);
+  const complete = criterionList.length > 0 && capturedWeight === 100;
+  const overallBand = getGradeBand(weightedGrade);
   const comments = items.map(item => [
     item.Comentario ? `${h(item.Criterio)} · Comentario: ${h(item.Comentario)}` : "",
     item.Observaciones ? `${h(item.Criterio)} · Observación: ${h(item.Observaciones)}` : ""
   ].filter(Boolean).join("<br>")).filter(Boolean).map(comment => `<p>${comment}</p>`).join("");
-  const chartImage = reportChartInstance ? `<img src="cid:report-chart" alt="Porcentajes por criterio" style="display:block;width:340px;max-width:100%;margin:20px auto;">` : "";
+  const exam = criterionList.find(criterion => /examen/i.test(criterion.name));
+  const chartImage = reportChartInstance ? `<img src="cid:report-chart" alt="Desempeño del alumno en todos los criterios del parcial" style="display:block;width:100%;max-width:620px;margin:20px auto;">` : "";
+  const periodLabel = getPeriodLabel(parcial);
+  const teacherCopy = getTeacherCopy(recipients);
   const html = `<div style="font-family:Arial,sans-serif;color:#17202a;max-width:720px;margin:auto;">
-    <h1>Reporte individual de calificaciones</h1><p><strong>${h(alumno.Nombre || "Alumno")}</strong> · ${h(alumno.Clase || clase)} · Matrícula ${h(alumno.Matricula || alumno.id)}</p>
-    <h2>${h(clase)} · Parcial ${h(parcial?.Numero || "—")}</h2>${chartImage}
+    <h1>Reporte individual</h1><p><strong>${h(alumno.Nombre || "Alumno")}</strong> · Grado ${h(alumno.Grado || "—")} · Grupo ${h(alumno.Grupo || "—")} · Matrícula ${h(alumno.Matricula || alumno.id)}</p>
+    <h2>${h(clase)} · ${h(periodLabel)}</h2><p><strong>${complete ? "Calificación ponderada" : "Avance ponderado"}: ${weightedGrade.toFixed(2)} / 10${complete ? ` · ${h(overallBand.label)}` : ` · Capturado ${capturedWeight}%`}</strong></p>${chartImage}
     <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;padding:8px;">Criterio</th><th style="text-align:left;border-bottom:1px solid #ccc;padding:8px;">Porcentaje</th><th style="text-align:left;border-bottom:1px solid #ccc;padding:8px;">Calificación</th></tr></thead><tbody>${criteria}</tbody></table>
     <h2>Comentarios y observaciones del docente</h2>${comments || "<p>Sin comentarios registrados.</p>"}
-    <p style="color:#687078;font-size:12px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}). Destinatarios: ${h(recipients.join(", "))}</p>
+    <p style="color:#687078;font-size:12px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}). Destinatarios: ${h(recipients.join(", "))}${teacherCopy ? ` · Copia al docente: ${h(teacherCopy)}` : ""}</p>
   </div>`;
   const boundary = `madero_${Date.now()}`;
   const chartData = reportChartInstance?.toBase64Image().split(",")[1] || "";
   const parts = [
     `To: ${recipients.join(", ")}`,
-    `Subject: =?UTF-8?B?${encodeBase64Utf8(`Reporte de calificaciones - ${alumno.Nombre || "Alumno"} - ${clase}`)}?=`,
+    `Subject: =?UTF-8?B?${encodeBase64Utf8(`Reporte individual - ${alumno.Nombre || "Alumno"} - ${alumno.Grado || ""} ${alumno.Grupo || ""} - ${getPeriodLabel(parcial)} - ${clase}`)}?=`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/related; boundary="${boundary}"`,
     "",
@@ -1899,9 +2020,88 @@ function buildIndividualReportEmail(recipients) {
     "",
     encodeBase64Utf8(html)
   ];
+  if (teacherCopy) parts.splice(1, 0, `Cc: ${teacherCopy}`);
   if (chartData) parts.push(`--${boundary}`, "Content-Type: image/png", "Content-Transfer-Encoding: base64", "Content-ID: <report-chart>", "Content-Disposition: inline; filename=calificaciones.png", "", chartData);
   parts.push(`--${boundary}--`, "");
   return parts.join("\r\n");
+}
+
+function getReportRecipients() {
+  const { alumno } = activeIndividualReport;
+  const mode = document.getElementById("report-recipient-mode").value;
+  const advisorEmail = document.getElementById("report-advisor-email").value.trim();
+  const includeParent = document.getElementById("report-send-parent").checked;
+  const parentEmail = document.getElementById("report-parent-email").value.trim();
+  const recipients = [];
+  if (["student", "both"].includes(mode) && alumno.Correo) recipients.push(alumno.Correo.trim());
+  if (["advisor", "both"].includes(mode)) {
+    if (!advisorEmail) { toast("Escribe el correo del asesor", "warn"); return null; }
+    recipients.push(advisorEmail);
+  }
+  if (["student", "both"].includes(mode) && !alumno.Correo) { toast("El alumno no tiene correo registrado", "warn"); return null; }
+  if (includeParent) {
+    if (!parentEmail) { toast("Escribe el correo del padre o tutor", "warn"); return null; }
+    recipients.push(parentEmail);
+  }
+  if (!recipients.length || recipients.some(email => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    toast("Revisa los correos de los destinatarios", "warn");
+    return null;
+  }
+  return [...new Set(recipients)];
+}
+
+function getTeacherCopy(recipients) {
+  const teacherEmail = String(docenteData.Correo || "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(teacherEmail) && !recipients.some(email => email.toLowerCase() === teacherEmail.toLowerCase())
+    ? teacherEmail
+    : "";
+}
+
+function openReportEmail() {
+  if (!activeIndividualReport) return;
+  const recipients = getReportRecipients();
+  if (!recipients) return;
+  const { alumno, parcial, clase, items } = activeIndividualReport;
+  const criteria = (parcial?.Criterios || []).map(criterion => {
+    const gradeValue = items.find(item => item.Criterio === criterion.nombre)?.Calificacion;
+    const grade = gradeValue === undefined || gradeValue === null || gradeValue === "" ? null : Number(gradeValue);
+    const band = getGradeBand(grade);
+    return `${criterion.nombre} (${Number(criterion.porcentaje) || 0}%): ${grade === null || !Number.isFinite(grade) ? "Pendiente" : `${grade.toFixed(1)} · ${band.label}`}`;
+  });
+  const total = (parcial?.Criterios || []).reduce((sum, criterion) => {
+    const grade = Number(items.find(item => item.Criterio === criterion.nombre)?.Calificacion);
+    return sum + (Number.isFinite(grade) ? grade * (Number(criterion.porcentaje) || 0) / 100 : 0);
+  }, 0);
+  const capturedWeight = (parcial?.Criterios || []).reduce((sum, criterion) => {
+    const grade = Number(items.find(item => item.Criterio === criterion.nombre)?.Calificacion);
+    return sum + (Number.isFinite(grade) ? Number(criterion.porcentaje) || 0 : 0);
+  }, 0);
+  const complete = capturedWeight === 100;
+  const band = getGradeBand(total);
+  const notes = items.flatMap(item => [
+    item.Comentario ? `${item.Criterio} · Comentario: ${item.Comentario}` : "",
+    item.Observaciones ? `${item.Criterio} · Observación: ${item.Observaciones}` : ""
+  ]).filter(Boolean);
+  const period = getPeriodLabel(parcial);
+  const subject = `Reporte individual - ${alumno.Nombre || "Alumno"} - ${alumno.Grado || ""} ${alumno.Grupo || ""} - ${period} - ${clase}`;
+  const body = [
+    "Reporte individual de calificaciones",
+    `Alumno: ${alumno.Nombre || "Alumno"}`,
+    `Grado: ${alumno.Grado || "—"} · Grupo: ${alumno.Grupo || "—"}`,
+    `Materia: ${clase} · ${period}`,
+    `Calificación ${complete ? "ponderada" : "acumulada"}: ${total.toFixed(2)} / 10${complete ? ` · ${band.label}` : ` · Capturado ${capturedWeight}%`}`,
+    "",
+    "Criterios:",
+    ...criteria,
+    "",
+    "Comentarios y observaciones:",
+    ...(notes.length ? notes : ["Sin comentarios u observaciones registrados."]),
+    "",
+    `Docente: ${docenteData.Nombre || "Docente"}`
+  ].join("\n");
+  const copy = getTeacherCopy(recipients);
+  const mailto = `mailto:${encodeURIComponent(recipients.join(","))}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}${copy ? `&cc=${encodeURIComponent(copy)}` : ""}`;
+  window.location.href = mailto;
 }
 
 async function sendIndividualReport() {
@@ -1916,26 +2116,11 @@ async function sendIndividualReport() {
     return;
   }
   const { alumno } = activeIndividualReport;
-  const mode = document.getElementById("report-recipient-mode").value;
-  const advisorEmail = document.getElementById("report-advisor-email").value.trim();
+  const recipients = getReportRecipients();
+  if (!recipients) return;
   const includeParent = document.getElementById("report-send-parent").checked;
   const parentEmail = document.getElementById("report-parent-email").value.trim();
   const linkParent = document.getElementById("report-link-parent").checked;
-  const recipients = [];
-  if (["student", "both"].includes(mode) && alumno.Correo) recipients.push(alumno.Correo.trim());
-  if (["advisor", "both"].includes(mode)) {
-    if (!advisorEmail) { toast("Escribe el correo del asesor", "warn"); return; }
-    recipients.push(advisorEmail);
-  }
-  if (["student", "both"].includes(mode) && !alumno.Correo) { toast("El alumno no tiene correo registrado", "warn"); return; }
-  if (includeParent) {
-    if (!parentEmail) { toast("Escribe el correo del padre o tutor", "warn"); return; }
-    recipients.push(parentEmail);
-  }
-  if (!recipients.length || recipients.some(email => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
-    toast("Revisa los correos de los destinatarios", "warn");
-    return;
-  }
 
   const button = document.getElementById("btn-send-report");
   button.disabled = true;
