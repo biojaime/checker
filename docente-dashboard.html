@@ -392,14 +392,6 @@
         </div>
       </button>
 
-      <button class="nav-card" data-panel="tareas">
-        <div class="nav-icon green">📝</div>
-        <div class="nav-card-text">
-          <span class="nav-card-title">Tareas</span>
-          <span class="nav-card-sub">Registro de tareas</span>
-        </div>
-      </button>
-
       <button class="nav-card" data-panel="calificaciones">
         <div class="nav-icon blue">✏️</div>
         <div class="nav-card-text">
@@ -466,13 +458,6 @@
               <div class="stat-lbl">Parciales</div>
             </div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon teal">📝</div>
-            <div>
-              <div class="stat-num" id="s-tareas">0</div>
-              <div class="stat-lbl">Tareas</div>
-            </div>
-          </div>
         </div>
         <!-- Profile card -->
         <div class="card" style="overflow:visible;">
@@ -528,30 +513,6 @@
                 <th>Clase</th><th>Parcial</th><th>Criterios</th><th>Total %</th><th>Estado</th><th>Acciones</th>
               </tr></thead>
               <tbody><tr class="tbl-empty"><td colspan="6">Cargando…</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ══ PANEL: TAREAS ══ -->
-      <div class="panel" id="panel-tareas">
-        <div class="card">
-          <div class="card-header">
-            <h2>📝 Gestión de Tareas</h2>
-            <button class="btn btn-primary btn-lg" onclick="openTareaModal()">+ Nueva Tarea</button>
-          </div>
-          <div style="padding:1rem 1.4rem; border-bottom:1px solid var(--border); display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <label style="font-size:0.82rem; font-weight:700; color:var(--muted);">Filtrar por clase:</label>
-            <select class="fselect" id="tarea-clase-filter" style="min-width:200px;">
-              <option value="">— Todas las clases —</option>
-            </select>
-          </div>
-          <div class="table-wrap">
-            <table class="tbl" id="tbl-tareas">
-              <thead><tr>
-                <th>Clase</th><th>Grupo</th><th>Parcial</th><th>Tarea</th><th>Descripción</th><th>Fecha</th><th>Valor</th><th>Acciones</th>
-              </tr></thead>
-              <tbody><tr class="tbl-empty"><td colspan="8">Cargando…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -862,7 +823,6 @@ const panelMeta = {
   inicio:          { title:"Inicio",                sub:"Bienvenido al portal docente",    chip:"🏠 Inicio" },
   clases:          { title:"Mis Clases",             sub:"Materias asignadas en Firebase",  chip:"📚 Clases" },
   parciales:       { title:"Parciales",              sub:"Gestión de criterios y evaluación",chip:"📋 Parciales" },
-  tareas:          { title:"Tareas",                 sub:"Registro de actividades",         chip:"📝 Tareas" },
   calificaciones:  { title:"Captura de Calificaciones",sub:"Califica por clase y parcial", chip:"✏️ Calificaciones" },
   boletas:         { title:"Boletas",                sub:"Consulta e impresión",           chip:"🧾 Boletas" },
   alumnos:         { title:"Consulta de Alumnos",    sub:"Búsqueda por matrícula o nombre", chip:"🔍 Alumnos" }
@@ -923,12 +883,7 @@ async function loadDocente() {
 
     populateClassSelects(clases);
     renderClassCards(clases);
-    const hasTareas = clases.some(isTareasEnabled);
-    document.querySelector('.nav-card[data-panel="tareas"]').style.display = hasTareas ? "" : "none";
-    document.getElementById("panel-tareas").style.display = hasTareas ? "" : "none";
-    document.getElementById("s-tareas").closest(".stat-card").style.display = hasTareas ? "" : "none";
     await loadParciales();
-    await loadTareas();
   } catch(e) {
     toast("Error cargando perfil: " + e.message, "err");
     console.error(e);
@@ -939,7 +894,7 @@ async function loadDocente() {
 // POPULATE ALL CLASS SELECTORS
 // ════════════════════════════════════════
 function populateClassSelects(clases) {
-  const ids = ["mp-clase","mt-clase","cal-clase","parcial-clase-filter","tarea-clase-filter"];
+  const ids = ["mp-clase","cal-clase","parcial-clase-filter"];
   ids.forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
@@ -1174,8 +1129,6 @@ function renderTareas() {
   </tr>`).join("");
 }
 
-document.getElementById("tarea-clase-filter").addEventListener("change", renderTareas);
-
 // ─── TAREA MODAL ───
 let editTareaId = null;
 async function populateTareaModalOptions() {
@@ -1399,7 +1352,6 @@ async function cargarAlumnosParaCalificar() {
     const existing = {};
     existingSnap.docs.forEach(d => { existing[d.data().AlumnoMatricula] = d.data(); });
 
-    const grupo = document.getElementById("cal-grupo").value;
     document.getElementById("cal-info").textContent = `${calAlumnos.length} alumno(s) cargado(s) — ${clase} · Grupo ${grupo} · Parcial ${cacheParciales.find(p=>p.id===parcialId)?.Numero||""} · ${criterio}`;
 
     const tbody = document.querySelector("#tbl-cal tbody");
