@@ -56,6 +56,13 @@
     }
     .subjects-card-head span { background: rgba(133,93,230,0.3); padding: 2px 10px; border-radius: 20px; font-size: 0.82rem; margin-left: auto; font-weight: 700; }
 
+    .grades-action { width:100%; padding:12px 16px; border:0; background:#25283a; color:#fff; font:inherit; font-weight:800; cursor:pointer; text-align:left; }
+    .grades-action:hover { background:#34374b; }
+    .grades-content { padding:1rem 1.2rem; color:#333; }
+    .grades-table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+    .grades-table th,.grades-table td { padding:9px 8px; border-bottom:1px solid #eee; text-align:left; vertical-align:top; }
+    .grades-table th { color:#666; font-size:0.75rem; text-transform:uppercase; }
+
     table.stbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     table.stbl th { padding: 10px 16px; background: #f8f9fa; color: #555; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid #eee; text-align: left; font-weight: 700; }
     table.stbl td { padding: 12px 16px; border-bottom: 1px solid #f3f3f3; color: #333; }
@@ -119,6 +126,12 @@
       </table>
     </div>
 
+    <div class="subjects-card">
+      <div class="subjects-card-head">✏️ Mis calificaciones</div>
+      <button type="button" class="grades-action" id="btn-load-grades">Consultar calificaciones</button>
+      <div class="grades-content" id="grades-content" hidden></div>
+    </div>
+
     <button class="btn-logout-dash" id="btn-logout">✕ Cerrar Sesión</button>
   </div>
 
@@ -130,6 +143,7 @@
     if (sessionStorage.getItem("userRole") !== "Alumno") location.href = "index.html";
 
     const MATRICULA = sessionStorage.getItem("username") || "";
+    let alumnoProfile = null;
 
     // ── Subject catalogue (official) ─────
     const SUBJECTS = {
@@ -146,6 +160,12 @@
       setTimeout(() => { t.classList.add("slide-out"); t.addEventListener("animationend",()=>t.remove()); }, 4000);
     }
 
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[character]));
+    }
+
     // ── Load profile (always by Matrícula doc ID) ──
     async function loadProfile() {
       try {
@@ -158,6 +178,7 @@
         }
 
         const d = snap.data();
+        alumnoProfile = { id: snap.id, ...d };
         const nombre = d.Nombre || sessionStorage.getItem("fullName") || "Alumno";
         const grado  = String(d.Grado || "");
         const grupo  = d.Grupo || "—";
@@ -172,6 +193,62 @@
         renderSubjects(grado);
       } catch(e) {
         showToast("Error al cargar perfil: " + e.message);
+      }
+    }
+
+    async function loadMyGrades() {
+      const button = document.getElementById("btn-load-grades");
+      const content = document.getElementById("grades-content");
+      content.hidden = false;
+      content.innerHTML = "Cargando calificaciones…";
+      button.disabled = true;
+      try {
+        if (!alumnoProfile?.Correo) throw new Error("Tu perfil no tiene un correo registrado.");
+        const email = String(alumnoProfile.Correo).trim().toLowerCase();
+        const group = String(alumnoProfile.Grupo || "").toUpperCase();
+        const grade = String(alumnoProfile.Grado || "");
+        const gradeSnap = await db.collection("Calificaciones")
+          .where("AlumnoMatricula", "==", MATRICULA)
+          .get();
+        const records = gradeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(record => !record.AlumnoCorreo || String(record.AlumnoCorreo).trim().toLowerCase() === email);
+        const teacherIds = [...new Set(records.map(record => record.DocenteId).filter(Boolean))];
+        const teachers = {};
+        await Promise.all(teacherIds.map(async teacherId => {
+          const snap = await db.collection("Usuarios").doc(teacherId).get();
+          if (snap.exists) teachers[teacherId] = snap.data();
+        }));
+
+        const visibleRecords = records.filter(record => {
+          const teacher = teachers[record.DocenteId];
+          if (!teacher || !(teacher.Clases || []).includes(record.Clase)) return false;
+          const classGrade = String(record.Clase || "").match(/\((\d)°\)/)?.[1];
+          if (classGrade && classGrade !== grade) return false;
+          if (String(record.Grupo || group).toUpperCase() !== group) return false;
+          const classConfig = teacher.ClasesConfig?.[record.Clase];
+          return Array.isArray(classConfig?.Grupos) && classConfig.Grupos.includes(group);
+        });
+
+        if (!visibleRecords.length) {
+          content.innerHTML = "Aún no hay calificaciones disponibles.";
+          return;
+        }
+
+        const partialsByTeacher = {};
+        await Promise.all([...new Set(visibleRecords.map(record => record.DocenteId))].map(async teacherId => {
+          const snap = await db.collection("Usuarios").doc(teacherId).collection("Parciales").get();
+          partialsByTeacher[teacherId] = Object.fromEntries(snap.docs.map(doc => [doc.id, doc.data()]));
+        }));
+        visibleRecords.sort((a, b) => `${a.Clase}${a.ParcialId}${a.Criterio}`.localeCompare(`${b.Clase}${b.ParcialId}${b.Criterio}`));
+        content.innerHTML = `<table class="grades-table"><thead><tr><th>Materia / parcial</th><th>Criterio</th><th>Nota</th><th>Docente</th></tr></thead><tbody>${visibleRecords.map(record => {
+          const teacher = teachers[record.DocenteId];
+          const partial = partialsByTeacher[record.DocenteId]?.[record.ParcialId];
+          return `<tr><td><strong>${escapeHtml(record.Clase)}</strong><br>Parcial ${escapeHtml(partial?.Numero || "—")}</td><td>${escapeHtml(record.Criterio || "—")}<br><small>${escapeHtml(record.Observaciones || record.Comentario || "")}</small></td><td><strong>${escapeHtml(record.Calificacion ?? "—")}</strong></td><td>${escapeHtml(teacher.Nombre || "Docente")}<br><small>${escapeHtml(teacher.Correo || "")}</small></td></tr>`;
+        }).join("")}</tbody></table>`;
+      } catch (error) {
+        content.textContent = "No se pudieron cargar las calificaciones: " + error.message;
+      } finally {
+        button.disabled = false;
       }
     }
 
@@ -190,6 +267,7 @@
     }
 
     document.getElementById("btn-logout").onclick = () => { sessionStorage.clear(); location.href = "index.html"; };
+    document.getElementById("btn-load-grades").addEventListener("click", loadMyGrades);
 
     loadProfile();
   </script>

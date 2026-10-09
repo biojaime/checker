@@ -202,6 +202,12 @@
     /* ─── TABLE ─── */
     .table-wrap { overflow-x:auto; }
     table.tbl { width:100%; border-collapse:collapse; font-size:0.875rem; }
+      .report-grid { display:grid; grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr); gap:20px; align-items:center; }
+      .report-grid > * { min-width:0; }
+    #modal-reporte .table-wrap { min-width:0; overflow-x:hidden; }
+    #modal-reporte table.tbl { table-layout:fixed; min-width:0; font-size:0.78rem; }
+    #modal-reporte table.tbl th, #modal-reporte table.tbl td { padding:7px 5px; white-space:normal; overflow-wrap:anywhere; }
+    @media (max-width:700px) { .report-grid { grid-template-columns:minmax(0,1fr); } }
     table.tbl th {
       padding:9px 14px; background:#f9fafb; color:var(--muted);
       font-weight:700; font-size:0.71rem; text-transform:uppercase;
@@ -741,8 +747,60 @@
   </div>
 </div>
 
+<!-- Individual report -->
+<div class="modal-bg" id="modal-reporte">
+  <div class="modal" style="width:min(860px, calc(100vw - 2rem)); min-width:0; max-width:860px; max-height:92vh; overflow:auto;">
+    <div class="modal-head">
+      <h3>Reporte individual</h3>
+      <button class="modal-close" onclick="closeModal('modal-reporte')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="report-student-heading" style="font-weight:800; margin-bottom:12px;"></div>
+      <div class="report-grid">
+        <div style="height:260px; position:relative;"><canvas id="report-chart" aria-label="Porcentajes de criterios del parcial"></canvas></div>
+        <div>
+          <div id="report-total" style="font-size:1.1rem; font-weight:800; margin-bottom:10px;"></div>
+          <div class="table-wrap"><table class="tbl"><thead><tr><th>Criterio</th><th>Peso</th><th>Nota</th><th>Aporta</th></tr></thead><tbody id="report-criteria"></tbody></table></div>
+        </div>
+      </div>
+      <div class="fgroup" style="margin-top:16px;">
+        <label>Comentarios y observaciones del docente</label>
+        <div id="report-comments" style="padding:10px; background:#f8fafc; border-radius:8px;"></div>
+      </div>
+      <hr style="border:0; border-top:1px solid var(--border); margin:16px 0;">
+      <div class="fgroup">
+        <label for="report-recipient-mode">Enviar a</label>
+        <select class="fselect" id="report-recipient-mode">
+          <option value="student">Alumno</option>
+          <option value="advisor">Asesor</option>
+          <option value="both">Alumno y asesor</option>
+        </select>
+      </div>
+      <div class="fgroup" id="report-advisor-wrap" style="display:none;">
+        <label for="report-advisor-email">Correo del asesor</label>
+        <input class="finput" type="email" id="report-advisor-email" placeholder="asesor@institucion.edu">
+      </div>
+      <div class="fgroup" style="margin-top:8px;">
+        <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="report-send-parent"> Incluir padre o tutor</label>
+      </div>
+      <div class="fgroup" id="report-parent-wrap" style="display:none;">
+        <label for="report-parent-email">Correo del padre o tutor</label>
+        <input class="finput" type="email" id="report-parent-email" placeholder="familia@ejemplo.com">
+        <label style="display:flex; align-items:center; gap:8px; margin-top:8px;"><input type="checkbox" id="report-link-parent"> Guardar correo vinculado al alumno</label>
+      </div>
+      <p style="font-size:0.8rem; color:var(--muted);">El envío se autoriza en Google; MaderoChecker no solicita ni guarda la contraseña del docente.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gray" onclick="closeModal('modal-reporte')">Cerrar</button>
+      <button class="btn btn-primary btn-lg" id="btn-send-report" onclick="sendIndividualReport()">Enviar reporte</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="firebase-init.js"></script>
 <script>
 // ════════════════════════════════════════
@@ -752,6 +810,8 @@ if (!["Docente","Docente (tutor)","admin"].includes(sessionStorage.getItem("user
   window.location.href = "index.html";
 }
 const DOCENTE_ID = sessionStorage.getItem("username") || "";
+// Configure the Google OAuth web client ID after enabling Gmail API access.
+const GOOGLE_OAUTH_CLIENT_ID = "";
 
 // ════════════════════════════════════════
 // GLOBAL STATE
@@ -761,6 +821,17 @@ let cacheParciales = [];  // [{id, Clase, Numero, Criterios[], ...}]
 let cacheTareas   = [];   // [{id, Clase, Nombre, ...}]
 let calAlumnos    = [];   // current grade+group students for grading
 let COLORS = ["","teal-card","amber-card"];  // class card cycling
+let individualReports = {};
+let activeIndividualReport = null;
+let reportChartInstance = null;
+
+function getClaseConfig(clase) {
+  return docenteData.ClasesConfig?.[clase] || null;
+}
+
+function isTareasEnabled(clase) {
+  return (getClaseConfig(clase)?.Modalidad || "regular") === "regular";
+}
 
 // ════════════════════════════════════════
 // TOAST
@@ -852,6 +923,10 @@ async function loadDocente() {
 
     populateClassSelects(clases);
     renderClassCards(clases);
+    const hasTareas = clases.some(isTareasEnabled);
+    document.querySelector('.nav-card[data-panel="tareas"]').style.display = hasTareas ? "" : "none";
+    document.getElementById("panel-tareas").style.display = hasTareas ? "" : "none";
+    document.getElementById("s-tareas").closest(".stat-card").style.display = hasTareas ? "" : "none";
     await loadParciales();
     await loadTareas();
   } catch(e) {
@@ -871,7 +946,10 @@ function populateClassSelects(clases) {
     const first = sel.options[0]; // keep placeholder
     sel.innerHTML = "";
     sel.appendChild(first);
-    clases.forEach(c => {
+    const opciones = ["mt-clase", "tarea-clase-filter"].includes(id)
+      ? clases.filter(isTareasEnabled)
+      : clases;
+    opciones.forEach(c => {
       const o = document.createElement("option");
       o.value = c; o.textContent = c;
       sel.appendChild(o);
@@ -959,7 +1037,11 @@ function openParcialModal(data = null) {
   document.getElementById("mp-id").value = data?.id || "";
   document.getElementById("mp-clase").value = data?.Clase || "";
   document.getElementById("mp-num").value  = data?.Numero || "1";
-  const crits = data?.Criterios || defaultCriteria;
+  const clase = data?.Clase || document.getElementById("mp-clase").value;
+  const criterios = isTareasEnabled(clase)
+    ? defaultCriteria
+    : defaultCriteria.filter(c => c.nombre.toLowerCase() !== "tareas");
+  const crits = (data?.Criterios || criterios).filter(c => isTareasEnabled(clase) || c.nombre.toLowerCase() !== "tareas");
   renderCriteriaList(crits);
   updatePctBar();
   openModal("modal-parcial");
@@ -1025,6 +1107,10 @@ async function saveParcial() {
   const criterios = nombres.map((n,i) => ({ nombre:n, porcentaje:pcts[i] })).filter(c => c.nombre);
   const total   = pcts.reduce((s,v) => s+v, 0);
 
+  if (!isTareasEnabled(clase) && criterios.some(c => c.nombre.toLowerCase() === "tareas")) {
+    toast("Elimina el criterio Tareas para esta modalidad", "warn");
+    return;
+  }
   if (total !== 100) { toast(`Los criterios deben sumar exactamente 100%. Actualmente: ${total}%`, "err"); return; }
   if (!criterios.length) { toast("Agrega al menos un criterio", "warn"); return; }
 
@@ -1067,7 +1153,7 @@ async function loadTareas() {
 function renderTareas() {
   const tbody  = document.querySelector("#tbl-tareas tbody");
   const filter = document.getElementById("tarea-clase-filter")?.value || "";
-  let list = cacheTareas;
+  let list = cacheTareas.filter(t => isTareasEnabled(t.Clase));
   if (filter) list = list.filter(t => t.Clase === filter);
   if (!list.length) {
     tbody.innerHTML = `<tr class="tbl-empty"><td colspan="8">No hay tareas registradas. Crea una con "+ Nueva Tarea".</td></tr>`;
@@ -1105,7 +1191,10 @@ async function populateTareaModalOptions() {
   const gradeMatch = clase.match(/\((\d)°\)/);
   const grado = gradeMatch ? gradeMatch[1] : null;
   if (grado) {
-    const grupos = await loadGroupsForGrade(grado);
+    const gruposDisponibles = await loadGroupsForGrade(grado);
+    const config = getClaseConfig(clase);
+    const gruposAsignados = config && Array.isArray(config.Grupos) ? config.Grupos : gruposDisponibles;
+    const grupos = gruposDisponibles.filter(g => gruposAsignados.includes(g));
     grupos.forEach(g => {
       const o = document.createElement("option");
       o.value = g; o.textContent = g;
@@ -1146,6 +1235,7 @@ async function saveTarea() {
   const grupo   = document.getElementById("mt-grupo").value;
   const parcial = document.getElementById("mt-parcial").value;
   const nombre  = document.getElementById("mt-nombre").value.trim();
+  if (!isTareasEnabled(clase)) { toast("Las tareas no están habilitadas para esta modalidad", "err"); return; }
   if (!clase || !grupo || !parcial || !nombre) { toast("Clase, grupo, parcial y nombre son obligatorios", "warn"); return; }
   const parcialData = cacheParciales.find(p => p.id === parcial) || {};
   const observaciones = document.getElementById("mt-desc").value.trim();
@@ -1182,6 +1272,18 @@ async function deleteTarea(id) {
 document.getElementById("cal-clase").addEventListener("change", onClaseCalChange);
 document.getElementById("cal-parcial").addEventListener("change", onParcialCalChange);
 document.getElementById("mt-clase").addEventListener("change", populateTareaModalOptions);
+document.getElementById("mp-clase").addEventListener("change", e => {
+  const criteria = isTareasEnabled(e.target.value)
+    ? defaultCriteria
+    : defaultCriteria.filter(c => c.nombre.toLowerCase() !== "tareas");
+  if (!document.getElementById("mp-id").value) renderCriteriaList(criteria);
+  else if (!isTareasEnabled(e.target.value)) {
+    document.querySelectorAll(".criteria-row").forEach(row => {
+      if (row.querySelector(".crit-nombre")?.value.trim().toLowerCase() === "tareas") row.remove();
+    });
+    updatePctBar();
+  }
+});
 
 async function loadGroupsForGrade(grado) {
   try {
@@ -1269,6 +1371,8 @@ async function cargarAlumnosParaCalificar() {
   const criterio = document.getElementById("cal-criterio").value;
   const grupo    = document.getElementById("cal-grupo").value;
   if (!clase || !grupo || !parcialId || !criterio) { toast("Selecciona clase, grupo, parcial y criterio", "warn"); return; }
+  const config = getClaseConfig(clase);
+  if (config && !(config.Grupos || []).includes(grupo)) { toast("Este grupo no está asignado a tu clase", "err"); return; }
 
   // Extract grade from class name e.g. "Matemáticas I (1°)" → "1"
   const gradeMatch = clase.match(/\((\d)°\)/);
@@ -1337,6 +1441,8 @@ async function saveAllGrades() {
       batch.set(ref, {
         DocenteId:       DOCENTE_ID,
         AlumnoMatricula: mat,
+        AlumnoCorreo:    calAlumnos.find(a => (a.Matricula || a.id) === mat)?.Correo || "",
+        Grupo:           document.getElementById("cal-grupo").value,
         Clase:           clase,
         ParcialId:       parcialId,
         Criterio:        criterio,
@@ -1360,6 +1466,7 @@ document.getElementById("alum-search").addEventListener("keydown", e => { if (e.
 async function buscarAlumno() {
   const q      = document.getElementById("alum-search").value.trim().toLowerCase();
   const result = document.getElementById("alumno-result");
+  individualReports = {};
   if (!q) { result.innerHTML = `<div class="empty-state"><div class="em-icon">🔍</div><p>Ingresa algo para buscar</p></div>`; return; }
 
   result.innerHTML = `<div class="empty-state"><div class="em-icon">⏳</div><p>Buscando…</p></div>`;
@@ -1408,10 +1515,15 @@ async function buscarAlumno() {
     } else {
       Object.values(grouped).forEach(g => {
         const par = cacheParciales.find(p => p.id === g.parcial);
-        const promedio = g.items.reduce((s,i) => s + (i.Calificacion||0), 0) / g.items.length;
+        const reportKey = `reporte-${Object.keys(individualReports).length}`;
+        individualReports[reportKey] = { alumno, parcial: par || null, clase: g.clase, items: g.items };
+        const promedio = g.items.reduce((s,i) => s + (Number(i.Calificacion)||0), 0) / g.items.length;
         calHtml += `
           <div style="margin-bottom:1rem;">
-            <div class="section-h">${h(g.clase)} — Parcial ${par?.Numero||""}</div>
+            <div class="section-h" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+              <span>${h(g.clase)} — Parcial ${h(par?.Numero||"")}</span>
+              <button class="btn btn-indigo" onclick="openIndividualReport('${reportKey}')">Generar reporte individual</button>
+            </div>
             <table class="tbl" style="margin-top:6px;">
               <thead><tr><th>Criterio</th><th>Calificación</th><th>Observaciones</th><th>Comentario</th></tr></thead>
               <tbody>
@@ -1446,6 +1558,203 @@ async function buscarAlumno() {
 
   } catch(e) { toast("Error: " + e.message, "err"); result.innerHTML = `<div class="empty-state"><div class="em-icon">❌</div><p>${e.message}</p></div>`; }
 }
+
+function openIndividualReport(reportKey) {
+  activeIndividualReport = individualReports[reportKey];
+  if (!activeIndividualReport) return;
+  const { alumno, parcial, clase, items } = activeIndividualReport;
+  const criteria = (parcial?.Criterios || []).map(criterion => {
+    const gradeRecord = items.find(item => item.Criterio === criterion.nombre);
+    const grade = gradeRecord?.Calificacion === undefined ? null : Number(gradeRecord.Calificacion);
+    return {
+      name: criterion.nombre,
+      percentage: Number(criterion.porcentaje) || 0,
+      grade,
+      contribution: grade === null ? null : grade * (Number(criterion.porcentaje) || 0) / 100,
+      comment: gradeRecord?.Comentario || "",
+      observations: gradeRecord?.Observaciones || ""
+    };
+  });
+  const assignedWeight = criteria.reduce((total, criterion) => total + criterion.percentage, 0);
+  const capturedWeight = criteria.filter(criterion => criterion.grade !== null).reduce((total, criterion) => total + criterion.percentage, 0);
+  const weightedGrade = criteria.reduce((total, criterion) => total + (criterion.contribution || 0), 0);
+  const complete = criteria.length > 0 && capturedWeight === assignedWeight && assignedWeight === 100;
+
+  document.getElementById("report-student-heading").textContent = `${alumno.Nombre || "Alumno"} · ${clase} · Parcial ${parcial?.Numero || "—"}`;
+  document.getElementById("report-total").textContent = complete
+    ? `Calificación ponderada: ${weightedGrade.toFixed(2)} / 10`
+    : `Avance ponderado: ${weightedGrade.toFixed(2)} / 10 · Capturado ${capturedWeight}% de ${assignedWeight}%`;
+  document.getElementById("report-criteria").innerHTML = criteria.map(criterion => `<tr>
+    <td>${h(criterion.name)}</td><td>${criterion.percentage}%</td>
+    <td>${criterion.grade === null ? "Pendiente" : criterion.grade.toFixed(1)}</td>
+    <td>${criterion.contribution === null ? "—" : criterion.contribution.toFixed(2)}</td>
+  </tr>`).join("") || `<tr><td colspan="4">Este parcial no tiene porcentajes configurados.</td></tr>`;
+  const comments = criteria.flatMap(criterion => [
+    criterion.comment ? `<p><strong>${h(criterion.name)} · Comentario:</strong> ${h(criterion.comment)}</p>` : "",
+    criterion.observations ? `<p><strong>${h(criterion.name)} · Observación:</strong> ${h(criterion.observations)}</p>` : ""
+  ]).filter(Boolean);
+  document.getElementById("report-comments").innerHTML = comments.join("") || "Sin comentarios u observaciones registrados.";
+
+  const mode = document.getElementById("report-recipient-mode");
+  mode.value = "student";
+  document.getElementById("report-advisor-email").value = "";
+  document.getElementById("report-parent-email").value = alumno.CorreoPadre || alumno.CorreoTutor || "";
+  document.getElementById("report-send-parent").checked = false;
+  document.getElementById("report-link-parent").checked = false;
+  updateReportRecipientFields();
+
+  if (reportChartInstance) reportChartInstance.destroy();
+  const chartCanvas = document.getElementById("report-chart");
+  if (window.Chart && criteria.length) {
+    reportChartInstance = new Chart(chartCanvas, {
+      type: "pie",
+      data: {
+        labels: criteria.map(criterion => `${criterion.name} (${criterion.percentage}%)`),
+        datasets: [{
+          data: criteria.map(criterion => criterion.percentage),
+          backgroundColor: ["#0d9488", "#d97706", "#4f46e5", "#dc2626", "#16a34a", "#0284c7", "#be185d"],
+          borderColor: "#ffffff",
+          borderWidth: 2
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+    });
+  } else {
+    document.getElementById("report-total").textContent += " · No se pudo cargar la gráfica.";
+  }
+  openModal("modal-reporte");
+}
+
+function updateReportRecipientFields() {
+  const mode = document.getElementById("report-recipient-mode").value;
+  const includeParent = document.getElementById("report-send-parent").checked;
+  document.getElementById("report-advisor-wrap").style.display = ["advisor", "both"].includes(mode) ? "" : "none";
+  document.getElementById("report-parent-wrap").style.display = includeParent ? "" : "none";
+}
+
+function encodeBase64Utf8(value) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary);
+}
+
+function encodeBase64Url(value) {
+  return btoa(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function buildIndividualReportEmail(recipients) {
+  const { alumno, parcial, clase, items } = activeIndividualReport;
+  const criteria = (parcial?.Criterios || []).map(criterion => {
+    const grade = items.find(item => item.Criterio === criterion.nombre)?.Calificacion;
+    return `<tr><td>${h(criterion.nombre)}</td><td>${Number(criterion.porcentaje) || 0}%</td><td>${grade === undefined ? "Pendiente" : h(grade)}</td></tr>`;
+  }).join("");
+  const comments = items.map(item => [
+    item.Comentario ? `${h(item.Criterio)} · Comentario: ${h(item.Comentario)}` : "",
+    item.Observaciones ? `${h(item.Criterio)} · Observación: ${h(item.Observaciones)}` : ""
+  ].filter(Boolean).join("<br>")).filter(Boolean).map(comment => `<p>${comment}</p>`).join("");
+  const chartImage = reportChartInstance ? `<img src="cid:report-chart" alt="Porcentajes por criterio" style="display:block;width:340px;max-width:100%;margin:20px auto;">` : "";
+  const html = `<div style="font-family:Arial,sans-serif;color:#17202a;max-width:720px;margin:auto;">
+    <h1>Reporte individual de calificaciones</h1><p><strong>${h(alumno.Nombre || "Alumno")}</strong> · ${h(alumno.Clase || clase)} · Matrícula ${h(alumno.Matricula || alumno.id)}</p>
+    <h2>${h(clase)} · Parcial ${h(parcial?.Numero || "—")}</h2>${chartImage}
+    <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;padding:8px;">Criterio</th><th style="text-align:left;border-bottom:1px solid #ccc;padding:8px;">Porcentaje</th><th style="text-align:left;border-bottom:1px solid #ccc;padding:8px;">Calificación</th></tr></thead><tbody>${criteria}</tbody></table>
+    <h2>Comentarios y observaciones del docente</h2>${comments || "<p>Sin comentarios registrados.</p>"}
+    <p style="color:#687078;font-size:12px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}). Destinatarios: ${h(recipients.join(", "))}</p>
+  </div>`;
+  const boundary = `madero_${Date.now()}`;
+  const chartData = reportChartInstance?.toBase64Image().split(",")[1] || "";
+  const parts = [
+    `To: ${recipients.join(", ")}`,
+    `Subject: =?UTF-8?B?${encodeBase64Utf8(`Reporte de calificaciones - ${alumno.Nombre || "Alumno"} - ${clase}`)}?=`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/related; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    encodeBase64Utf8(html)
+  ];
+  if (chartData) parts.push(`--${boundary}`, "Content-Type: image/png", "Content-Transfer-Encoding: base64", "Content-ID: <report-chart>", "Content-Disposition: inline; filename=calificaciones.png", "", chartData);
+  parts.push(`--${boundary}--`, "");
+  return parts.join("\r\n");
+}
+
+async function sendIndividualReport() {
+  if (!activeIndividualReport) return;
+  if (!GOOGLE_OAUTH_CLIENT_ID) {
+    toast("Falta configurar el ID de cliente OAuth de Google Workspace para habilitar el envío", "warn");
+    return;
+  }
+  if (!window.google?.accounts?.oauth2) {
+    toast("No se pudo cargar la autorización de Google. Verifica la conexión e inténtalo de nuevo.", "err");
+    return;
+  }
+  const { alumno } = activeIndividualReport;
+  const mode = document.getElementById("report-recipient-mode").value;
+  const advisorEmail = document.getElementById("report-advisor-email").value.trim();
+  const includeParent = document.getElementById("report-send-parent").checked;
+  const parentEmail = document.getElementById("report-parent-email").value.trim();
+  const linkParent = document.getElementById("report-link-parent").checked;
+  const recipients = [];
+  if (["student", "both"].includes(mode) && alumno.Correo) recipients.push(alumno.Correo.trim());
+  if (["advisor", "both"].includes(mode)) {
+    if (!advisorEmail) { toast("Escribe el correo del asesor", "warn"); return; }
+    recipients.push(advisorEmail);
+  }
+  if (["student", "both"].includes(mode) && !alumno.Correo) { toast("El alumno no tiene correo registrado", "warn"); return; }
+  if (includeParent) {
+    if (!parentEmail) { toast("Escribe el correo del padre o tutor", "warn"); return; }
+    recipients.push(parentEmail);
+  }
+  if (!recipients.length || recipients.some(email => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    toast("Revisa los correos de los destinatarios", "warn");
+    return;
+  }
+
+  const button = document.getElementById("btn-send-report");
+  button.disabled = true;
+  button.textContent = "Autorizando…";
+  const tokenClient = window.google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_OAUTH_CLIENT_ID,
+    scope: "https://www.googleapis.com/auth/gmail.send",
+    callback: async tokenResponse => {
+      try {
+        if (tokenResponse.error || !tokenResponse.access_token) throw new Error("Google no autorizó el envío.");
+        const mimeMessage = buildIndividualReportEmail(recipients);
+        const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ raw: encodeBase64Url(mimeMessage) })
+        });
+        if (!response.ok) {
+          const details = await response.json();
+          throw new Error(details.error?.message || "Gmail no pudo enviar el mensaje.");
+        }
+        if (includeParent && linkParent) {
+          await db.collection("Usuarios").doc(alumno.Matricula || alumno.id).update({ CorreoPadre: parentEmail });
+        }
+        toast("Reporte enviado correctamente", "ok");
+        closeModal("modal-reporte");
+      } catch (error) {
+        toast("No se pudo enviar el reporte: " + error.message, "err");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Enviar reporte";
+      }
+    },
+    error_callback: error => {
+      toast("No se pudo abrir Google: " + (error.message || error.type), "err");
+      button.disabled = false;
+      button.textContent = "Enviar reporte";
+    }
+  });
+  button.textContent = "Autorizar en Google…";
+  tokenClient.requestAccessToken({ prompt: "select_account" });
+}
+
+document.getElementById("report-recipient-mode").addEventListener("change", updateReportRecipientFields);
+document.getElementById("report-send-parent").addEventListener("change", updateReportRecipientFields);
 
 // ════════════════════════════════════════
 // INIT

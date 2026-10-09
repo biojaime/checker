@@ -1077,14 +1077,30 @@ async function darBaja(col, id) {
 // ════════════════════════════════════════
 let currentTeacherId = null;
 let currentClases    = [];
+let currentClasesConfig = {};
+let availableGroupsByGrade = {};
 let mmGradeFilter    = "";
 
-function abrirMaterias(id, nombre) {
+async function abrirMaterias(id, nombre) {
   currentTeacherId = id;
   document.getElementById("mm-nombre").textContent = nombre;
   document.getElementById("mm-id").value = id;
   const doc = cacheDocentes.find(d => d.id === id);
   currentClases = [...(doc?.Clases || [])];
+  currentClasesConfig = { ...(doc?.ClasesConfig || {}) };
+  availableGroupsByGrade = {};
+  const students = await db.collection("Usuarios").where("Rol", "==", "Alumno").get();
+  students.docs.forEach(student => {
+    const data = student.data();
+    const grade = String(data.Grado || "");
+    const group = String(data.Grupo || "").toUpperCase();
+    if (!grade || !group) return;
+    if (!availableGroupsByGrade[grade]) availableGroupsByGrade[grade] = new Set();
+    availableGroupsByGrade[grade].add(group);
+  });
+  Object.keys(availableGroupsByGrade).forEach(grade => {
+    availableGroupsByGrade[grade] = [...availableGroupsByGrade[grade]].sort();
+  });
   mmGradeFilter = "";
   document.querySelectorAll(".grade-tab").forEach(t => t.classList.toggle("active", !t.dataset.grade));
   renderSubjectGrid();
@@ -1121,9 +1137,11 @@ function renderSubjectGrid() {
       label.querySelector("input").addEventListener("change", e => {
         if (e.target.checked) {
           if (!currentClases.includes(fullName)) currentClases.push(fullName);
+          currentClasesConfig[fullName] = currentClasesConfig[fullName] || { Modalidad: "regular", Grupos: [] };
           label.classList.add("checked");
         } else {
           currentClases = currentClases.filter(c => c !== fullName);
+          delete currentClasesConfig[fullName];
           label.classList.remove("checked");
         }
         renderAssignedTags();
@@ -1140,13 +1158,44 @@ function renderAssignedTags() {
     container.innerHTML = `<span style="font-size:0.82rem;color:#aaa;">Ninguna asignada aún</span>`;
     return;
   }
-  container.innerHTML = currentClases.map(c =>
-    `<span class="tag">${h(c)}<button onclick="removeClase('${c.replace(/'/g,"\\'")}')">×</button></span>`
-  ).join("");
+  container.innerHTML = currentClases.map(clase => {
+    const grade = clase.match(/\((\d)°\)/)?.[1] || "";
+    const config = currentClasesConfig[clase] || { Modalidad: "regular", Grupos: [] };
+    const groups = availableGroupsByGrade[grade] || [];
+    return `<div style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:8px;">
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+        <strong>${h(clase)}</strong>
+        <button class="btn btn-red" onclick="removeClase('${clase.replace(/'/g,"\\'")}')">Quitar</button>
+      </div>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">Modalidad
+        <select class="fselect" style="max-width:180px;" onchange="setClaseModalidad('${clase.replace(/'/g,"\\'")}', this.value)">
+          <option value="regular" ${config.Modalidad === "regular" ? "selected" : ""}>Regular</option>
+          <option value="espanol" ${config.Modalidad === "espanol" ? "selected" : ""}>Español</option>
+          <option value="bilingue" ${config.Modalidad === "bilingue" ? "selected" : ""}>Bilingüe</option>
+        </select>
+      </label>
+      <div style="margin-top:8px; font-size:0.85rem;">Grupos asignados:
+        ${groups.length ? groups.map(group => `<label style="display:inline-flex; align-items:center; gap:4px; margin:4px 8px 0 0;"><input type="checkbox" ${(config.Grupos || []).includes(group) ? "checked" : ""} onchange="toggleClaseGrupo('${clase.replace(/'/g,"\\'")}', '${group}', this.checked)">${h(group)}</label>`).join("") : `<span style="color:#9ca3af;">No hay alumnos registrados en este grado</span>`}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function setClaseModalidad(clase, modalidad) {
+  currentClasesConfig[clase] = { ...(currentClasesConfig[clase] || { Grupos: [] }), Modalidad: modalidad };
+}
+
+function toggleClaseGrupo(clase, grupo, enabled) {
+  const config = currentClasesConfig[clase] || { Modalidad: "regular", Grupos: [] };
+  const groups = new Set(config.Grupos || []);
+  if (enabled) groups.add(grupo);
+  else groups.delete(grupo);
+  currentClasesConfig[clase] = { ...config, Grupos: [...groups] };
 }
 
 function removeClase(name) {
   currentClases = currentClases.filter(c => c !== name);
+  delete currentClasesConfig[name];
   renderSubjectGrid();
   renderAssignedTags();
 }
@@ -1157,9 +1206,12 @@ document.getElementById("btn-mm-save").onclick = async () => {
   btn.disabled = true;
   btn.innerHTML = `<span class="spinner-sm"></span> Guardando…`;
   try {
-    await db.collection("Usuarios").doc(currentTeacherId).update({ Clases: currentClases });
+    await db.collection("Usuarios").doc(currentTeacherId).update({ Clases: currentClases, ClasesConfig: currentClasesConfig });
     const idx = cacheDocentes.findIndex(d => d.id === currentTeacherId);
-    if (idx !== -1) cacheDocentes[idx].Clases = [...currentClases];
+    if (idx !== -1) {
+      cacheDocentes[idx].Clases = [...currentClases];
+      cacheDocentes[idx].ClasesConfig = { ...currentClasesConfig };
+    }
     toast("Materias guardadas correctamente", "ok");
     closeModal("modal-materias");
     renderDocentes();
