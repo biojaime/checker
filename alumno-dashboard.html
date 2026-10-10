@@ -62,6 +62,7 @@
     .grades-table { width:100%; border-collapse:collapse; font-size:0.88rem; }
     .grades-table th,.grades-table td { padding:9px 8px; border-bottom:1px solid #eee; text-align:left; vertical-align:top; }
     .grades-table th { color:#666; font-size:0.75rem; text-transform:uppercase; }
+    .grades-section + .grades-section { margin-top:1rem; padding-top:1rem; border-top:1px solid #e5e7eb; }
 
     table.stbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     table.stbl th { padding: 10px 16px; background: #f8f9fa; color: #555; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid #eee; text-align: left; font-weight: 700; }
@@ -203,15 +204,15 @@
       content.innerHTML = "Cargando calificaciones…";
       button.disabled = true;
       try {
-        if (!alumnoProfile?.Correo) throw new Error("Tu perfil no tiene un correo registrado.");
-        const email = String(alumnoProfile.Correo).trim().toLowerCase();
         const group = String(alumnoProfile.Grupo || "").toUpperCase();
         const grade = String(alumnoProfile.Grado || "");
-        const gradeSnap = await db.collection("Calificaciones")
-          .where("AlumnoMatricula", "==", MATRICULA)
-          .get();
-        const records = gradeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(record => !record.AlumnoCorreo || String(record.AlumnoCorreo).trim().toLowerCase() === email);
+        const identifiers = [...new Set([MATRICULA, alumnoProfile.Matricula].filter(Boolean).map(String))];
+        const gradeSnaps = await Promise.all(identifiers.map(identifier => db.collection("Calificaciones")
+          .where("AlumnoMatricula", "==", identifier)
+          .get()));
+        const recordsById = new Map();
+        gradeSnaps.forEach(snapshot => snapshot.docs.forEach(doc => recordsById.set(doc.id, { id: doc.id, ...doc.data() })));
+        const records = [...recordsById.values()];
         const teacherIds = [...new Set(records.map(record => record.DocenteId).filter(Boolean))];
         const teachers = {};
         await Promise.all(teacherIds.map(async teacherId => {
@@ -226,7 +227,7 @@
           if (classGrade && classGrade !== grade) return false;
           if (String(record.Grupo || group).toUpperCase() !== group) return false;
           const classConfig = teacher.ClasesConfig?.[record.Clase];
-          return Array.isArray(classConfig?.Grupos) && classConfig.Grupos.includes(group);
+          return !Array.isArray(classConfig?.Grupos) || !classConfig.Grupos.length || classConfig.Grupos.includes(group);
         });
 
         if (!visibleRecords.length) {
@@ -240,11 +241,53 @@
           partialsByTeacher[teacherId] = Object.fromEntries(snap.docs.map(doc => [doc.id, doc.data()]));
         }));
         visibleRecords.sort((a, b) => `${a.Clase}${a.ParcialId}${a.Criterio}`.localeCompare(`${b.Clase}${b.ParcialId}${b.Criterio}`));
-        content.innerHTML = `<table class="grades-table"><thead><tr><th>Materia / parcial</th><th>Criterio</th><th>Nota</th><th>Docente</th></tr></thead><tbody>${visibleRecords.map(record => {
-          const teacher = teachers[record.DocenteId];
-          const partial = partialsByTeacher[record.DocenteId]?.[record.ParcialId];
-          return `<tr><td><strong>${escapeHtml(record.Clase)}</strong><br>Parcial ${escapeHtml(partial?.Numero || "—")}</td><td>${escapeHtml(record.Criterio || "—")}<br><small>${escapeHtml(record.Observaciones || record.Comentario || "")}</small></td><td><strong>${escapeHtml(record.Calificacion ?? "—")}</strong></td><td>${escapeHtml(teacher.Nombre || "Docente")}<br><small>${escapeHtml(teacher.Correo || "")}</small></td></tr>`;
-        }).join("")}</tbody></table>`;
+        const groups = new Map();
+        visibleRecords.forEach(record => {
+          const key = `${record.DocenteId}||${record.Clase}||${record.ParcialId}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(record);
+        });
+        const sections = await Promise.all([...groups.values()].map(async recordsForPartial => {
+          const first = recordsForPartial[0];
+          const teacher = teachers[first.DocenteId];
+          const partial = partialsByTeacher[first.DocenteId]?.[first.ParcialId];
+          const partialCommentId = `${first.DocenteId}_${encodeURIComponent(first.ParcialId)}_${encodeURIComponent(first.AlumnoMatricula)}`;
+          const commentSnap = await db.collection("ComentariosParciales").doc(partialCommentId).get();
+          const generalComment = commentSnap.exists
+            ? commentSnap.data().Comentario || ""
+            : recordsForPartial.find(record => record.Comentario)?.Comentario || "";
+          const recordsByCriterion = new Map(recordsForPartial.map(record => [record.Criterio, record]));
+          const criteria = partial?.Criterios?.length
+            ? partial.Criterios
+            : recordsForPartial.map(record => ({ nombre: record.Criterio, porcentaje: 0 }));
+          const rows = criteria.map(criterion => {
+            const record = recordsByCriterion.get(criterion.nombre);
+            const rawGrade = record?.Calificacion;
+            const gradeValue = rawGrade === undefined || rawGrade === null || rawGrade === "" ? null : Number(rawGrade);
+            const grade = gradeValue !== null && Number.isFinite(gradeValue) ? gradeValue : null;
+            const percentage = Number(criterion.porcentaje) || 0;
+            const evidence = (record?.Evidencias || []).map((item, index) => {
+              try {
+                const url = new URL(item.url);
+                return url.protocol === "https:" ? `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener">${escapeHtml(item.nombre || `Imagen ${index + 1}`)}</a>` : "";
+              } catch (error) { return ""; }
+            }).filter(Boolean).join(" · ");
+            return `<tr><td>${escapeHtml(criterion.nombre)}</td><td>${percentage}%</td><td><strong>${grade === null ? "Pendiente" : grade.toFixed(1)}</strong></td><td>${escapeHtml(record?.Observaciones || "—")}${evidence ? `<br>${evidence}` : ""}</td></tr>`;
+          });
+          const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
+          const capturedWeight = criteria.reduce((sum, criterion) => {
+            const value = recordsByCriterion.get(criterion.nombre)?.Calificacion;
+            return sum + (value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(criterion.porcentaje) || 0 : 0);
+          }, 0);
+          const weightedGrade = criteria.reduce((sum, criterion) => {
+            const value = recordsByCriterion.get(criterion.nombre)?.Calificacion;
+            const gradeValue = value === undefined || value === null || value === "" ? null : Number(value);
+            return sum + (gradeValue !== null && Number.isFinite(gradeValue) ? gradeValue * (Number(criterion.porcentaje) || 0) / 100 : 0);
+          }, 0);
+          const complete = assignedWeight === 100 && capturedWeight === assignedWeight;
+          return `<section class="grades-section"><strong>${escapeHtml(first.Clase)} · Parcial ${escapeHtml(partial?.Numero || "—")}</strong><br><small>${escapeHtml(teacher.Nombre || "Docente")}</small><p><strong>${complete ? "Calificación ponderada" : "Avance ponderado"}: ${weightedGrade.toFixed(2)} / 10${complete ? "" : ` · Capturado ${capturedWeight}% de ${assignedWeight}%`}</strong></p><p><small>Comentario general: ${escapeHtml(generalComment || "Sin comentario registrado.")}</small></p><table class="grades-table"><thead><tr><th>Criterio</th><th>Peso</th><th>Nota</th><th>Observación y evidencia</th></tr></thead><tbody>${rows.join("")}</tbody></table></section>`;
+        }));
+        content.innerHTML = sections.join("");
       } catch (error) {
         content.textContent = "No se pudieron cargar las calificaciones: " + error.message;
       } finally {
