@@ -79,7 +79,28 @@
     .student-choice[aria-pressed="true"] small { color: #50319d; }
     .partial-list { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ececf1; }
     .student-report { margin-top: 12px; padding: 12px; border-radius: 8px; background: #f8f9fc; overflow-x: auto; }
-    .student-report p + p { margin-top: 8px; }
+    .student-report-heading { font-weight: 800; margin-bottom: 12px; }
+    .student-report-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 14px; align-items: start; }
+    .student-report-grid > div { min-width: 0; }
+    .student-chart-wrap { height: 230px; position: relative; }
+    .student-exam-summary { margin-top: 8px; text-align: center; color: #687078; font-size: 0.82rem; font-weight: 700; }
+    .student-report-total { margin-bottom: 8px; font-size: 1rem; font-weight: 800; }
+    .student-report-level { margin-bottom: 10px; font-weight: 800; }
+    .student-report-table-wrap { width: 100%; overflow-x: auto; }
+    .student-report-table-wrap .grades-table { min-width: 500px; }
+    .student-grade-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 0.72rem; }
+    .student-grade-legend span { font-weight: 700; }
+    .student-report-comments { margin-top: 14px; padding: 10px; border-radius: 7px; background: #fff; }
+    .student-report-comments p + p { margin-top: 8px; }
+    .student-report-evidence { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
+    .student-report-evidence a { color: inherit; text-decoration: none; border: 1px solid #e2e8f0; border-radius: 7px; overflow: hidden; }
+    .student-report-evidence img { display: block; width: 100%; height: 100px; object-fit: cover; }
+    .student-report-evidence span { display: block; padding: 6px; font-size: 0.75rem; }
+
+    @media (max-width: 760px) {
+      .student-report-grid { grid-template-columns: minmax(0, 1fr); }
+      .student-report-table-wrap .grades-table { min-width: 500px; }
+    }
 
     @media (max-width: 540px) {
       body { padding: 16px 12px; }
@@ -88,6 +109,8 @@
       .info-card { padding: 1.1rem; }
       .subjects-card-head { padding: 1rem 1.1rem; }
       .student-list { padding: 0.2rem 1rem; }
+      .student-report-grid { grid-template-columns: 1fr; }
+      .student-chart-wrap { height: 210px; }
     }
 
     table.stbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -150,6 +173,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="firebase-init.js"></script>
   <script>
     // ── Session check ────────────────────
@@ -159,6 +183,7 @@
     let alumnoProfile = null;
     let studentTeachers = [];
     let studentGradeRecords = [];
+    let studentReportChart = null;
 
     // ── Subject catalogue (official) ─────
     const SUBJECTS = {
@@ -179,6 +204,18 @@
       return String(value ?? "").replace(/[&<>"']/g, character => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
       }[character]));
+    }
+
+    function getGradeBand(value) {
+      if (value === null || value === undefined || value === "") return { label: "Sin calificación", color: "#6b7280" };
+      const grade = Number(value);
+      if (!Number.isFinite(grade)) return { label: "Sin calificación", color: "#6b7280" };
+      if (grade < 6) return { label: "Deficiente", color: "#dc2626" };
+      if (grade < 7) return { label: "Necesita apoyo", color: "#b45309" };
+      if (grade < 8) return { label: "Puede mejorar", color: "#15803d" };
+      if (grade < 9) return { label: "Eficiente", color: "#0f766e" };
+      if (grade < 10) return { label: "Bueno", color: "#2563eb" };
+      return { label: "Excelente", color: "#7c3aed" };
     }
 
     // ── Load profile (always by Matrícula doc ID) ──
@@ -305,6 +342,8 @@
         || classEntry.partials.find(item => Number(item.Numero) === partialNumber);
       const records = partial ? classEntry.records.filter(record => record.ParcialId === partial.id) : [];
       const report = container.querySelector(".student-report");
+      if (studentReportChart) studentReportChart.destroy();
+      studentReportChart = null;
       if (!partial || !records.length) {
         report.innerHTML = `<p>No registrado al momento.</p>`;
         return;
@@ -322,7 +361,9 @@
             return url.protocol === "https:" ? `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener">${escapeHtml(item.nombre || `Evidencia ${index + 1}`)}</a>` : "";
           } catch (error) { return ""; }
         }).filter(Boolean).join(" · ");
-        return `<tr><td>${escapeHtml(criterion.nombre)}</td><td>${Number(criterion.porcentaje) || 0}%</td><td>${grade === null ? "Pendiente" : grade.toFixed(1)}</td><td>${escapeHtml(record?.Observaciones || "—")}${evidence ? `<br>${evidence}` : ""}</td></tr>`;
+        const band = getGradeBand(grade);
+        const contribution = grade === null ? "—" : (grade * (Number(criterion.porcentaje) || 0) / 100).toFixed(2);
+        return `<tr><td>${escapeHtml(criterion.nombre)}</td><td>${Number(criterion.porcentaje) || 0}%</td><td>${grade === null ? "Pendiente" : `<strong style="color:${band.color}">${grade.toFixed(1)} · ${band.label}</strong>`}</td><td>${contribution}</td></tr>`;
       });
       const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
       const capturedWeight = criteria.reduce((sum, criterion) => {
@@ -333,11 +374,75 @@
         const value = recordsByCriterion.get(criterion.nombre)?.Calificacion;
         return sum + (value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(value) * (Number(criterion.porcentaje) || 0) / 100 : 0);
       }, 0);
+      const complete = criteria.length > 0 && assignedWeight === 100 && capturedWeight === assignedWeight;
+      const overallBand = getGradeBand(total);
       const commentId = `${teacher.id}_${encodeURIComponent(partial.id)}_${encodeURIComponent(alumnoProfile.Matricula || MATRICULA)}`;
-      report.innerHTML = `<p><strong>${escapeHtml(classEntry.subject)} · Parcial ${partialNumber}</strong></p>
-        <p><strong>${assignedWeight === 100 && capturedWeight === assignedWeight ? "Calificación" : "Avance"}: ${total.toFixed(2)} / 10 · Capturado ${capturedWeight}% de ${assignedWeight}%</strong></p>
-        <p><strong>Comentario general:</strong> <span data-general-comment="${escapeHtml(commentId)}">Cargando…</span></p>
-        <table class="grades-table"><thead><tr><th>Criterio</th><th>Peso</th><th>Nota</th><th>Observación y evidencia</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+      const comments = [
+        ...criteria.map(criterion => {
+          const observation = recordsByCriterion.get(criterion.nombre)?.Observaciones;
+          return observation ? `<p><strong>${escapeHtml(criterion.nombre)} · Observación:</strong> ${escapeHtml(observation)}</p>` : "";
+        })
+      ].filter(Boolean).join("");
+      const evidenceCards = criteria.flatMap(criterion => (recordsByCriterion.get(criterion.nombre)?.Evidencias || []).map((item, index) => {
+        try {
+          const url = new URL(item.url);
+          if (url.protocol !== "https:") return "";
+          const label = item.nombre || `Evidencia ${index + 1}`;
+          return `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener"><img src="${escapeHtml(url.href)}" alt="Evidencia de ${escapeHtml(criterion.nombre)}"><span>${escapeHtml(criterion.nombre)} · ${escapeHtml(label)}</span></a>`;
+        } catch (error) { return ""; }
+      })).filter(Boolean).join("");
+      const exam = criteria.find(criterion => /examen/i.test(criterion.nombre));
+      const examValue = exam ? recordsByCriterion.get(exam.nombre)?.Calificacion : null;
+      const examGrade = examValue === undefined || examValue === null || examValue === "" ? null : Number(examValue);
+      const examSummary = exam && examGrade !== null && Number.isFinite(examGrade)
+        ? `Examen (${Number(exam.porcentaje) || 0}%): ${examGrade.toFixed(1)} / 10 · aporta ${(examGrade * (Number(exam.porcentaje) || 0) / 100).toFixed(2)} puntos`
+        : exam ? "Examen pendiente de calificar" : "No hay criterio llamado Examen en este parcial";
+      const studentName = alumnoProfile.Nombre || sessionStorage.getItem("fullName") || "Alumno";
+      const gradeLabel = alumnoProfile.Grado ? `${alumnoProfile.Grado}°` : "—";
+      report.innerHTML = `<div class="student-report-heading">${escapeHtml(studentName)} · Grado ${escapeHtml(gradeLabel)} · Grupo ${escapeHtml(alumnoProfile.Grupo || "—")} · ${escapeHtml(classEntry.name)} · Parcial ${partialNumber}</div>
+        <div class="student-report-grid">
+          <div><div class="student-chart-wrap"><canvas class="student-grade-chart" aria-label="Calificaciones de todos los criterios de 0 a 10"></canvas></div><div class="student-exam-summary">${escapeHtml(examSummary)}</div></div>
+          <div><div class="student-report-total">${complete ? "Calificación ponderada" : "Avance ponderado"}: ${total.toFixed(2)} / 10${complete ? "" : ` · Capturado ${capturedWeight}% de ${assignedWeight}%`}</div>
+            <div class="student-report-level" style="color:${complete ? overallBand.color : "#6b7280"}">${complete ? overallBand.label : "Clasificación disponible al completar la captura"}</div>
+            <div class="student-report-table-wrap"><table class="grades-table"><thead><tr><th>Criterio</th><th>Peso</th><th>Nota</th><th>Aporta</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="4">Este parcial no tiene porcentajes configurados.</td></tr>`}</tbody></table></div>
+          </div>
+        </div>
+        <div class="student-grade-legend"><span style="color:#dc2626">&lt; 6 Deficiente</span><span style="color:#b45309">6–6.9 Necesita apoyo</span><span style="color:#15803d">7–7.9 Puede mejorar</span><span style="color:#0f766e">8–8.9 Eficiente</span><span style="color:#2563eb">9–9.9 Bueno</span><span style="color:#7c3aed">10 Excelente</span></div>
+        <div class="student-report-comments"><strong>Comentario general y observaciones</strong><div data-report-comments><p><strong>Comentario general:</strong> <span data-general-comment="${escapeHtml(commentId)}">Cargando…</span></p>${comments || ""}</div></div>
+        <div class="student-report-comments"><strong>Evidencias por criterio</strong><div class="student-report-evidence">${evidenceCards || "Sin evidencias adjuntas."}</div></div>`;
+      const chartCanvas = report.querySelector(".student-grade-chart");
+      if (window.Chart && chartCanvas) {
+        studentReportChart = new Chart(chartCanvas, {
+          type: "bar",
+          data: {
+            labels: criteria.map(criterion => `${criterion.nombre} (${Number(criterion.porcentaje) || 0}%)`),
+            datasets: [{
+              label: "Calificación sobre 10",
+              data: criteria.map(criterion => {
+                const value = recordsByCriterion.get(criterion.nombre)?.Calificacion;
+                const grade = value === undefined || value === null || value === "" ? null : Number(value);
+                return grade !== null && Number.isFinite(grade) ? grade : null;
+              }),
+              backgroundColor: criteria.map(criterion => getGradeBand(recordsByCriterion.get(criterion.nombre)?.Calificacion).color),
+              borderColor: criteria.map(criterion => getGradeBand(recordsByCriterion.get(criterion.nombre)?.Calificacion).color),
+              borderWidth: 1,
+              borderRadius: 4,
+              maxBarThickness: 26
+            }]
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { right: 28 } },
+            scales: {
+              x: { min: 0, max: 10, ticks: { stepSize: 2 }, title: { display: true, text: "Calificación (0–10)" } },
+              y: { grid: { display: false } }
+            },
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
       db.collection("ComentariosParciales").doc(commentId).get().then(commentSnap => {
         const comment = commentSnap.exists ? commentSnap.data().Comentario || "" : records.find(record => record.Comentario)?.Comentario || "";
         const commentNode = report.querySelector("[data-general-comment]");
@@ -349,7 +454,7 @@
     }
 
     document.getElementById("teachers-content").addEventListener("click", event => {
-      const classButton = event.target.closest("[data-class-index]");
+      const classButton = event.target.closest("button[data-class-index]");
       const partialButton = event.target.closest("[data-partial-number]");
       const teacherRow = event.target.closest("[data-teacher-index]");
       if (!teacherRow) return;
@@ -366,10 +471,10 @@
           const status = recordCount ? `${recordCount} registro(s)` : partial ? "Sin calificaciones" : "Sin configurar";
           return `<button type="button" class="student-choice partial-choice" data-partial-number="${partialNumber}" data-partial-id="${escapeHtml(partial?.id || "")}" aria-pressed="false"><span>Parcial ${partialNumber}</span><small>${status}</small></button>`;
         }).join("")}</div><div class="student-report">Selecciona un parcial para consultar el reporte.</div>`;
-        partialList.dataset.classIndex = classButton.dataset.classIndex;
+        partialList.dataset.selectedClassIndex = classButton.dataset.classIndex;
       } else if (partialButton) {
         const partialList = teacherRow.querySelector(".partial-list");
-        const classEntry = teacher.classes[Number(partialList.dataset.classIndex)];
+        const classEntry = teacher.classes[Number(partialList.dataset.selectedClassIndex)];
         teacherRow.querySelectorAll("[data-partial-number]").forEach(button => button.setAttribute("aria-pressed", String(button === partialButton)));
         renderStudentReport(partialList, teacher, classEntry, Number(partialButton.dataset.partialNumber), partialButton.dataset.partialId);
       }
