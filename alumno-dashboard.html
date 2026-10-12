@@ -64,6 +64,27 @@
     .grades-table th { color:#666; font-size:0.75rem; text-transform:uppercase; }
     .grades-section + .grades-section { margin-top:1rem; padding-top:1rem; border-top:1px solid #e5e7eb; }
 
+    .student-list { padding: 0.25rem 1.2rem; color: #333; }
+    .student-notice, .teacher-row { padding: 1rem 0; border-bottom: 1px solid #eee; }
+    .student-notice:last-child, .teacher-row:last-child { border-bottom: 0; }
+    .student-notice small, .teacher-email { display: block; color: #687078; margin-top: 4px; overflow-wrap: anywhere; }
+    .teacher-name { font-weight: 800; }
+    .teacher-classes, .partial-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .student-choice { border: 1px solid #d8dbe5; border-radius: 7px; background: #fff; color: #303345; padding: 8px 12px; font: inherit; font-weight: 700; cursor: pointer; }
+    .student-choice:hover, .student-choice[aria-pressed="true"] { border-color: #855de6; background: #f2edff; color: #6743c2; }
+    .partial-list { margin-top: 12px; }
+    .student-report { margin-top: 12px; padding: 12px; border-radius: 8px; background: #f8f9fc; overflow-x: auto; }
+    .student-report p + p { margin-top: 8px; }
+
+    @media (max-width: 540px) {
+      body { padding: 16px 12px; }
+      .dash-header { padding: 1.2rem; gap: 0.8rem; }
+      .dash-header img { height: 42px; }
+      .info-card { padding: 1.1rem; }
+      .subjects-card-head { padding: 1rem 1.1rem; }
+      .student-list { padding: 0.2rem 1rem; }
+    }
+
     table.stbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     table.stbl th { padding: 10px 16px; background: #f8f9fa; color: #555; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid #eee; text-align: left; font-weight: 700; }
     table.stbl td { padding: 12px 16px; border-bottom: 1px solid #f3f3f3; color: #333; }
@@ -95,7 +116,7 @@
 
   <div class="dash-wrap">
     <div class="dash-header">
-      <img src="./home_files/ad0ab9a6c6a3c1caac40fecc3ba9fc1f.png" alt="Logo">
+      <img src="https://immsec.neocities.org/IMM/IMM.png" alt="Logo IMM">
       <div class="dash-header-text">
         <h1>¡Hola, <span id="welcome-name">Alumno</span>!</h1>
         <p>Portal MaderoChecker · <span id="school-year">Ciclo Escolar 2024-2025</span></p>
@@ -110,27 +131,13 @@
     </div>
 
     <div class="subjects-card">
-      <div class="subjects-card-head">
-        📚 Mis Materias
-        <span id="grade-badge">—</span>
-      </div>
-      <table class="stbl">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Materia</th>
-          </tr>
-        </thead>
-        <tbody id="stbl-body">
-          <tr><td colspan="2" style="text-align:center;padding:2rem;color:#aaa;">Cargando materias…</td></tr>
-        </tbody>
-      </table>
+      <div class="subjects-card-head">🔔 Notificaciones</div>
+      <div class="student-list" id="notifications-content">Cargando notificaciones…</div>
     </div>
 
     <div class="subjects-card">
-      <div class="subjects-card-head">✏️ Mis calificaciones</div>
-      <button type="button" class="grades-action" id="btn-load-grades">Consultar calificaciones</button>
-      <div class="grades-content" id="grades-content" hidden></div>
+      <div class="subjects-card-head">👩‍🏫 Mis maestros <span id="grade-badge">—</span></div>
+      <div class="student-list" id="teachers-content">Cargando materias…</div>
     </div>
 
     <button class="btn-logout-dash" id="btn-logout">✕ Cerrar Sesión</button>
@@ -145,6 +152,8 @@
 
     const MATRICULA = sessionStorage.getItem("username") || "";
     let alumnoProfile = null;
+    let studentTeachers = [];
+    let studentGradeRecords = [];
 
     // ── Subject catalogue (official) ─────
     const SUBJECTS = {
@@ -174,7 +183,7 @@
 
         if (!snap.exists) {
           showToast("No se encontró tu perfil. Contacta al administrador.");
-          document.getElementById("stbl-body").innerHTML = `<tr><td colspan="2" style="text-align:center;padding:2rem;color:#e74c3c;">Perfil no encontrado. Contacta al administrador.</td></tr>`;
+          document.getElementById("teachers-content").textContent = "Perfil no encontrado. Contacta al administrador.";
           return;
         }
 
@@ -191,126 +200,170 @@
         document.getElementById("ui-grupo").textContent    = grupo;
         document.getElementById("grade-badge").textContent = grado ? `${grado}° de Secundaria` : "Sin asignar";
 
-        renderSubjects(grado);
+        await loadAssignedTeachers();
       } catch(e) {
         showToast("Error al cargar perfil: " + e.message);
       }
     }
 
-    async function loadMyGrades() {
-      const button = document.getElementById("btn-load-grades");
-      const content = document.getElementById("grades-content");
-      content.hidden = false;
-      content.innerHTML = "Cargando calificaciones…";
-      button.disabled = true;
+    async function loadAssignedTeachers() {
+      const teachersContent = document.getElementById("teachers-content");
+      const notificationsContent = document.getElementById("notifications-content");
+      const group = String(alumnoProfile.Grupo || "").toUpperCase();
+      const grade = String(alumnoProfile.Grado || "");
       try {
-        const group = String(alumnoProfile.Grupo || "").toUpperCase();
-        const grade = String(alumnoProfile.Grado || "");
+        const [teachersSnap, tutorsSnap] = await Promise.all([
+          db.collection("Usuarios").where("Rol", "==", "Docente").get(),
+          db.collection("Usuarios").where("Rol", "==", "Docente (tutor)").get()
+        ]);
+        const allTeachers = [...teachersSnap.docs, ...tutorsSnap.docs].map(doc => ({ id: doc.id, ...doc.data() }));
+        studentTeachers = allTeachers.map(teacher => {
+          const classes = (teacher.Clases || []).filter(className => {
+            const classGrade = String(className).match(/\((\d)°\)/)?.[1];
+            const matchesGrade = classGrade ? classGrade === grade : (SUBJECTS[grade] || []).some(subject => subject === className);
+            const groups = teacher.ClasesConfig?.[className]?.Grupos;
+            return matchesGrade && (!Array.isArray(groups) || !groups.length || groups.some(item => String(item).toUpperCase() === group));
+          }).map(name => ({
+            name,
+            subject: name.replace(/\s*\(\d°\)\s*$/, ""),
+            partials: [],
+            records: []
+          }));
+          return classes.length ? { ...teacher, id: teacher.id, classes } : null;
+        }).filter(Boolean);
+
         const identifiers = [...new Set([MATRICULA, alumnoProfile.Matricula].filter(Boolean).map(String))];
         const gradeSnaps = await Promise.all(identifiers.map(identifier => db.collection("Calificaciones")
           .where("AlumnoMatricula", "==", identifier)
           .get()));
         const recordsById = new Map();
         gradeSnaps.forEach(snapshot => snapshot.docs.forEach(doc => recordsById.set(doc.id, { id: doc.id, ...doc.data() })));
-        const records = [...recordsById.values()];
-        const teacherIds = [...new Set(records.map(record => record.DocenteId).filter(Boolean))];
-        const teachers = {};
-        await Promise.all(teacherIds.map(async teacherId => {
-          const snap = await db.collection("Usuarios").doc(teacherId).get();
-          if (snap.exists) teachers[teacherId] = snap.data();
-        }));
+        studentGradeRecords = [...recordsById.values()].filter(record => String(record.Grupo || group).toUpperCase() === group);
 
-        const visibleRecords = records.filter(record => {
-          const teacher = teachers[record.DocenteId];
-          if (!teacher || !(teacher.Clases || []).includes(record.Clase)) return false;
-          const classGrade = String(record.Clase || "").match(/\((\d)°\)/)?.[1];
-          if (classGrade && classGrade !== grade) return false;
-          if (String(record.Grupo || group).toUpperCase() !== group) return false;
-          const classConfig = teacher.ClasesConfig?.[record.Clase];
-          return !Array.isArray(classConfig?.Grupos) || !classConfig.Grupos.length || classConfig.Grupos.includes(group);
-        });
-
-        if (!visibleRecords.length) {
-          content.innerHTML = "Aún no hay calificaciones disponibles.";
-          return;
-        }
-
-        const partialsByTeacher = {};
-        await Promise.all([...new Set(visibleRecords.map(record => record.DocenteId))].map(async teacherId => {
-          const snap = await db.collection("Usuarios").doc(teacherId).collection("Parciales").get();
-          partialsByTeacher[teacherId] = Object.fromEntries(snap.docs.map(doc => [doc.id, doc.data()]));
-        }));
-        visibleRecords.sort((a, b) => `${a.Clase}${a.ParcialId}${a.Criterio}`.localeCompare(`${b.Clase}${b.ParcialId}${b.Criterio}`));
-        const groups = new Map();
-        visibleRecords.forEach(record => {
-          const key = `${record.DocenteId}||${record.Clase}||${record.ParcialId}`;
-          if (!groups.has(key)) groups.set(key, []);
-          groups.get(key).push(record);
-        });
-        const sections = await Promise.all([...groups.values()].map(async recordsForPartial => {
-          const first = recordsForPartial[0];
-          const teacher = teachers[first.DocenteId];
-          const partial = partialsByTeacher[first.DocenteId]?.[first.ParcialId];
-          const partialCommentId = `${first.DocenteId}_${encodeURIComponent(first.ParcialId)}_${encodeURIComponent(first.AlumnoMatricula)}`;
-          const commentSnap = await db.collection("ComentariosParciales").doc(partialCommentId).get();
-          const generalComment = commentSnap.exists
-            ? commentSnap.data().Comentario || ""
-            : recordsForPartial.find(record => record.Comentario)?.Comentario || "";
-          const recordsByCriterion = new Map(recordsForPartial.map(record => [record.Criterio, record]));
-          const criteria = partial?.Criterios?.length
-            ? partial.Criterios
-            : recordsForPartial.map(record => ({ nombre: record.Criterio, porcentaje: 0 }));
-          const rows = criteria.map(criterion => {
-            const record = recordsByCriterion.get(criterion.nombre);
-            const rawGrade = record?.Calificacion;
-            const gradeValue = rawGrade === undefined || rawGrade === null || rawGrade === "" ? null : Number(rawGrade);
-            const grade = gradeValue !== null && Number.isFinite(gradeValue) ? gradeValue : null;
-            const percentage = Number(criterion.porcentaje) || 0;
-            const evidence = (record?.Evidencias || []).map((item, index) => {
-              try {
-                const url = new URL(item.url);
-                return url.protocol === "https:" ? `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener">${escapeHtml(item.nombre || `Imagen ${index + 1}`)}</a>` : "";
-              } catch (error) { return ""; }
-            }).filter(Boolean).join(" · ");
-            return `<tr><td>${escapeHtml(criterion.nombre)}</td><td>${percentage}%</td><td><strong>${grade === null ? "Pendiente" : grade.toFixed(1)}</strong></td><td>${escapeHtml(record?.Observaciones || "—")}${evidence ? `<br>${evidence}` : ""}</td></tr>`;
+        await Promise.all(studentTeachers.map(async teacher => {
+          const snap = await db.collection("Usuarios").doc(teacher.id).collection("Parciales").get();
+          const partials = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          teacher.classes.forEach(classEntry => {
+            classEntry.partials = partials.filter(partial => partial.Clase === classEntry.name).sort((a, b) => Number(a.Numero) - Number(b.Numero));
+            classEntry.records = studentGradeRecords.filter(record => record.DocenteId === teacher.id && record.Clase === classEntry.name);
           });
-          const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
-          const capturedWeight = criteria.reduce((sum, criterion) => {
-            const value = recordsByCriterion.get(criterion.nombre)?.Calificacion;
-            return sum + (value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(criterion.porcentaje) || 0 : 0);
-          }, 0);
-          const weightedGrade = criteria.reduce((sum, criterion) => {
-            const value = recordsByCriterion.get(criterion.nombre)?.Calificacion;
-            const gradeValue = value === undefined || value === null || value === "" ? null : Number(value);
-            return sum + (gradeValue !== null && Number.isFinite(gradeValue) ? gradeValue * (Number(criterion.porcentaje) || 0) / 100 : 0);
-          }, 0);
-          const complete = assignedWeight === 100 && capturedWeight === assignedWeight;
-          return `<section class="grades-section"><strong>${escapeHtml(first.Clase)} · Parcial ${escapeHtml(partial?.Numero || "—")}</strong><br><small>${escapeHtml(teacher.Nombre || "Docente")}</small><p><strong>${complete ? "Calificación ponderada" : "Avance ponderado"}: ${weightedGrade.toFixed(2)} / 10${complete ? "" : ` · Capturado ${capturedWeight}% de ${assignedWeight}%`}</strong></p><p><small>Comentario general: ${escapeHtml(generalComment || "Sin comentario registrado.")}</small></p><table class="grades-table"><thead><tr><th>Criterio</th><th>Peso</th><th>Nota</th><th>Observación y evidencia</th></tr></thead><tbody>${rows.join("")}</tbody></table></section>`;
         }));
-        content.innerHTML = sections.join("");
+        renderTeacherList();
+        renderNotifications();
       } catch (error) {
-        content.textContent = "No se pudieron cargar las calificaciones: " + error.message;
-      } finally {
-        button.disabled = false;
+        teachersContent.textContent = "No se pudieron cargar tus maestros: " + error.message;
+        notificationsContent.textContent = "No se pudieron cargar las notificaciones.";
       }
     }
 
-    function renderSubjects(grado) {
-      const tbody = document.getElementById("stbl-body");
-      const list = SUBJECTS[grado];
-      if (!list) {
-        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;padding:2rem;color:#aaa;">No hay materias configuradas para tu grado.</td></tr>`;
+    function renderTeacherList() {
+      const content = document.getElementById("teachers-content");
+      if (!studentTeachers.length) {
+        content.textContent = "Aún no hay maestros o materias asignados a tu grupo.";
         return;
       }
-      tbody.innerHTML = list.map((s, i) => `
-        <tr>
-          <td style="color:#aaa; font-weight:700; width:40px;">${String(i+1).padStart(2,"0")}</td>
-          <td><strong>${s}</strong></td>
-        </tr>`).join("");
+      content.innerHTML = studentTeachers.map((teacher, teacherIndex) => `
+        <section class="teacher-row" data-teacher-index="${teacherIndex}">
+          <div class="teacher-name">${escapeHtml(teacher.Nombre || "Docente")}</div>
+          ${teacher.Correo ? `<a class="teacher-email" href="mailto:${encodeURIComponent(teacher.Correo)}">${escapeHtml(teacher.Correo)}</a>` : `<small class="teacher-email">Correo no registrado</small>`}
+          <div class="teacher-classes">${teacher.classes.map((classEntry, classIndex) => `<button type="button" class="student-choice" data-class-index="${classIndex}" aria-pressed="false">${escapeHtml(classEntry.subject)}</button>`).join("")}</div>
+          <div class="partial-list" hidden></div>
+        </section>`).join("");
     }
 
+    function renderNotifications() {
+      const content = document.getElementById("notifications-content");
+      const updates = new Map();
+      studentGradeRecords.forEach(record => {
+        if (record.Calificacion === null || record.Calificacion === undefined || record.Calificacion === "") return;
+        const teacher = studentTeachers.find(item => item.id === record.DocenteId);
+        if (!teacher) return;
+        const key = `${record.DocenteId}|${record.Clase}|${record.ParcialId}`;
+        const rawDate = record.FechaRegistro?.toDate?.() || record.FechaRegistro;
+        const time = new Date(rawDate || 0).getTime();
+        if (!updates.has(key) || time > updates.get(key).time) updates.set(key, { teacher, record, time });
+      });
+      const recent = [...updates.values()].sort((a, b) => b.time - a.time).slice(0, 8);
+      if (!recent.length) {
+        content.textContent = "Todavía no hay actualizaciones de calificaciones.";
+        return;
+      }
+      content.innerHTML = recent.map(({ teacher, record, time }) => {
+        const partial = teacher.classes.find(item => item.name === record.Clase)?.partials.find(item => item.id === record.ParcialId);
+        const dateLabel = Number.isFinite(time) && time > 0 ? new Date(time).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "";
+        return `<div class="student-notice"><strong>Tu profesor, ${escapeHtml(teacher.Nombre || "Docente")}, ha actualizado una calificación.</strong><small>${escapeHtml(record.Clase)} · Parcial ${escapeHtml(partial?.Numero || "—")}${dateLabel ? ` · ${escapeHtml(dateLabel)}` : ""}</small></div>`;
+      }).join("");
+    }
+
+    function renderStudentReport(container, teacher, classEntry, partialNumber) {
+      const partial = classEntry.partials.find(item => Number(item.Numero) === partialNumber);
+      const records = partial ? classEntry.records.filter(record => record.ParcialId === partial.id) : [];
+      const report = container.querySelector(".student-report");
+      if (!partial || !records.length) {
+        report.innerHTML = `<p>No registrado al momento.</p>`;
+        return;
+      }
+      const recordsByCriterion = new Map(records.map(record => [record.Criterio, record]));
+      const criteria = partial.Criterios || records.map(record => ({ nombre: record.Criterio, porcentaje: 0 }));
+      const rows = criteria.map(criterion => {
+        const record = recordsByCriterion.get(criterion.nombre);
+        const raw = record?.Calificacion;
+        const gradeValue = raw === undefined || raw === null || raw === "" ? null : Number(raw);
+        const grade = gradeValue !== null && Number.isFinite(gradeValue) ? gradeValue : null;
+        const evidence = (record?.Evidencias || []).map((item, index) => {
+          try {
+            const url = new URL(item.url);
+            return url.protocol === "https:" ? `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener">${escapeHtml(item.nombre || `Evidencia ${index + 1}`)}</a>` : "";
+          } catch (error) { return ""; }
+        }).filter(Boolean).join(" · ");
+        return `<tr><td>${escapeHtml(criterion.nombre)}</td><td>${Number(criterion.porcentaje) || 0}%</td><td>${grade === null ? "Pendiente" : grade.toFixed(1)}</td><td>${escapeHtml(record?.Observaciones || "—")}${evidence ? `<br>${evidence}` : ""}</td></tr>`;
+      });
+      const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
+      const capturedWeight = criteria.reduce((sum, criterion) => {
+        const value = recordsByCriterion.get(criterion.nombre)?.Calificacion;
+        return sum + (value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(criterion.porcentaje) || 0 : 0);
+      }, 0);
+      const total = criteria.reduce((sum, criterion) => {
+        const value = recordsByCriterion.get(criterion.nombre)?.Calificacion;
+        return sum + (value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(value) * (Number(criterion.porcentaje) || 0) / 100 : 0);
+      }, 0);
+      const commentId = `${teacher.id}_${encodeURIComponent(partial.id)}_${encodeURIComponent(alumnoProfile.Matricula || MATRICULA)}`;
+      report.innerHTML = `<p><strong>${escapeHtml(classEntry.subject)} · Parcial ${partialNumber}</strong></p>
+        <p><strong>${assignedWeight === 100 && capturedWeight === assignedWeight ? "Calificación" : "Avance"}: ${total.toFixed(2)} / 10 · Capturado ${capturedWeight}% de ${assignedWeight}%</strong></p>
+        <p><strong>Comentario general:</strong> <span data-general-comment="${escapeHtml(commentId)}">Cargando…</span></p>
+        <table class="grades-table"><thead><tr><th>Criterio</th><th>Peso</th><th>Nota</th><th>Observación y evidencia</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+      db.collection("ComentariosParciales").doc(commentId).get().then(commentSnap => {
+        const comment = commentSnap.exists ? commentSnap.data().Comentario || "" : records.find(record => record.Comentario)?.Comentario || "";
+        const commentNode = report.querySelector("[data-general-comment]");
+        if (commentNode?.dataset.generalComment === commentId) commentNode.textContent = comment || "Sin comentario general registrado.";
+      }).catch(() => {
+        const commentNode = report.querySelector("[data-general-comment]");
+        if (commentNode?.dataset.generalComment === commentId) commentNode.textContent = "Sin comentario general registrado.";
+      });
+    }
+
+    document.getElementById("teachers-content").addEventListener("click", event => {
+      const classButton = event.target.closest("[data-class-index]");
+      const partialButton = event.target.closest("[data-partial-number]");
+      const teacherRow = event.target.closest("[data-teacher-index]");
+      if (!teacherRow) return;
+      const teacher = studentTeachers[Number(teacherRow.dataset.teacherIndex)];
+      if (classButton) {
+        const classEntry = teacher.classes[Number(classButton.dataset.classIndex)];
+        teacherRow.querySelectorAll("[data-class-index]").forEach(button => button.setAttribute("aria-pressed", String(button === classButton)));
+        const partialList = teacherRow.querySelector(".partial-list");
+        partialList.hidden = false;
+        partialList.innerHTML = `<div class="partial-buttons">${Array.from({ length: 6 }, (_, index) => `<button type="button" class="student-choice" data-partial-number="${index + 1}" aria-pressed="false">Parcial ${index + 1}</button>`).join("")}</div><div class="student-report">Selecciona un parcial para consultar el reporte.</div>`;
+        partialList.dataset.classIndex = classButton.dataset.classIndex;
+      } else if (partialButton) {
+        const partialList = teacherRow.querySelector(".partial-list");
+        const classEntry = teacher.classes[Number(partialList.dataset.classIndex)];
+        teacherRow.querySelectorAll("[data-partial-number]").forEach(button => button.setAttribute("aria-pressed", String(button === partialButton)));
+        renderStudentReport(partialList, teacher, classEntry, Number(partialButton.dataset.partialNumber));
+      }
+    });
+
     document.getElementById("btn-logout").onclick = () => { sessionStorage.clear(); location.href = "index.html"; };
-    document.getElementById("btn-load-grades").addEventListener("click", loadMyGrades);
 
     loadProfile();
   </script>

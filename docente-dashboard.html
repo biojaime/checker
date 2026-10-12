@@ -368,7 +368,7 @@
   <!-- ════════ SIDEBAR ════════ -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <img src="./home_files/ad0ab9a6c6a3c1caac40fecc3ba9fc1f.png" alt="logo">
+      <img src="https://immsec.neocities.org/IMM/IMM.png" alt="Logo IMM">
       <span>MaderoChecker</span>
     </div>
 
@@ -780,7 +780,7 @@
         <input class="finput" type="email" id="report-parent-email" placeholder="familia@ejemplo.com">
         <label style="display:flex; align-items:center; gap:8px; margin-top:8px;"><input type="checkbox" id="report-link-parent"> Guardar correo vinculado al alumno</label>
       </div>
-      <p style="font-size:0.8rem; color:var(--muted);">“Abrir correo” prepara el mensaje en tu aplicación de correo; tú revisas y lo envías. “Enviar con Gmail” requiere autorización de Google. Se incluirá copia al correo del docente.</p>
+      <p style="font-size:0.8rem; color:var(--muted);">“Abrir correo” prepara el mensaje en tu aplicación de correo; tú revisas y lo envías. “Enviar con Gmail” requiere autorización de Google y se envía desde la cuenta que elijas al autorizar. Cada docente debe seleccionar su propio correo. Se incluirá copia al correo del docente.</p>
     </div>
     <div class="modal-foot">
       <button class="btn btn-gray" onclick="closeModal('modal-reporte')">Cerrar</button>
@@ -797,7 +797,8 @@
       <button class="modal-close" onclick="closeModal('modal-google-oauth')">×</button>
     </div>
     <div class="modal-body">
-      <p style="margin-bottom:12px;">Pega el ID de cliente OAuth de tipo Aplicación web. En Google Cloud también debes habilitar Gmail API y agregar el dominio actual como origen autorizado.</p>
+      <p style="margin-bottom:12px;">En Google Cloud, habilita Gmail API y registra este origen en el cliente OAuth de tipo Aplicación web, en “Orígenes autorizados de JavaScript”.</p>
+      <p id="google-oauth-origin" style="padding:10px;background:#f8fafc;border-radius:8px;font-size:.85rem;overflow-wrap:anywhere;"></p>
       <div class="fgroup">
         <label for="google-oauth-client-id">ID de cliente OAuth</label>
         <input class="finput" id="google-oauth-client-id" type="text" placeholder="123456789.apps.googleusercontent.com" autocomplete="off">
@@ -2242,8 +2243,13 @@ function openReportEmail() {
 
 async function sendIndividualReport() {
   if (!activeIndividualReport) return;
+  if (window.location.protocol === "file:") {
+    toast("Google no autoriza Gmail desde file://. Abre MaderoChecker mediante localhost o su dominio HTTPS y registra ese origen en Google Cloud.", "warn");
+    return;
+  }
   if (!GOOGLE_OAUTH_CLIENT_ID) {
     document.getElementById("google-oauth-client-id").value = "";
+    document.getElementById("google-oauth-origin").textContent = `Origen que debes autorizar: ${window.location.origin}`;
     openModal("modal-google-oauth");
     return;
   }
@@ -2290,9 +2296,9 @@ async function sendIndividualReport() {
       }
     },
     error_callback: error => {
-      toast("No se pudo abrir Google: " + (error.message || error.type), "err");
+      toast(`Google rechazó la autorización (${error.message || error.type}). Verifica que ${window.location.origin} esté registrado en Orígenes autorizados de JavaScript.`, "err");
       button.disabled = false;
-      button.textContent = "Enviar reporte";
+      button.textContent = "Enviar reporte visual";
     }
   });
   button.textContent = "Autorizar en Google…";
@@ -2300,6 +2306,10 @@ async function sendIndividualReport() {
 }
 
 function saveGoogleOAuthClientId() {
+  if (window.location.protocol === "file:") {
+    toast("Primero abre MaderoChecker desde localhost o un dominio HTTPS; Google OAuth no admite file://.", "warn");
+    return;
+  }
   const clientId = document.getElementById("google-oauth-client-id").value.trim();
   if (!/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.test(clientId)) {
     toast("Escribe un ID de cliente OAuth web válido", "warn");
