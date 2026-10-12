@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MaderoChecker – Portal del alumno</title>
+  <title>MaderoChecker – Portal del Alumno</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     body { align-items: flex-start; padding: 30px 20px; }
@@ -69,10 +69,15 @@
     .student-notice:last-child, .teacher-row:last-child { border-bottom: 0; }
     .student-notice small, .teacher-email { display: block; color: #687078; margin-top: 4px; overflow-wrap: anywhere; }
     .teacher-name { font-weight: 800; }
-    .teacher-classes, .partial-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-    .student-choice { border: 1px solid #d8dbe5; border-radius: 7px; background: #fff; color: #303345; padding: 8px 12px; font: inherit; font-weight: 700; cursor: pointer; }
-    .student-choice:hover, .student-choice[aria-pressed="true"] { border-color: #855de6; background: #f2edff; color: #6743c2; }
-    .partial-list { margin-top: 12px; }
+    .teacher-classes, .partial-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; margin-top: 10px; }
+    .student-choice { min-height: 44px; border: 1px solid #d8dbe5; border-radius: 7px; background: #fff; color: #303345; padding: 9px 12px; font: inherit; font-weight: 700; cursor: pointer; text-align: left; transition: border-color 0.15s, background 0.15s, color 0.15s; }
+    .student-choice:hover { border-color: #855de6; background: #f8f5ff; }
+    .student-choice[aria-pressed="true"] { border-color: #6743c2; background: #f0eaff; color: #50319d; box-shadow: inset 3px 0 #6743c2; }
+    .student-choice:focus-visible { outline: 3px solid rgba(103,67,194,0.35); outline-offset: 2px; }
+    .partial-choice { display: flex; flex-direction: column; gap: 3px; }
+    .partial-choice small { color: #687078; font-size: 0.72rem; font-weight: 600; }
+    .student-choice[aria-pressed="true"] small { color: #50319d; }
+    .partial-list { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ececf1; }
     .student-report { margin-top: 12px; padding: 12px; border-radius: 8px; background: #f8f9fc; overflow-x: auto; }
     .student-report p + p { margin-top: 8px; }
 
@@ -119,7 +124,7 @@
       <img src="https://immsec.neocities.org/IMM/IMM.png" alt="Logo IMM">
       <div class="dash-header-text">
         <h1>¡Hola, <span id="welcome-name">Alumno</span>!</h1>
-        <p>Portal MaderoChecker · <span id="school-year">Ciclo Escolar 2026-2027</span></p>
+        <p>Portal MaderoChecker · <span id="school-year">Ciclo Escolar 2024-2025</span></p>
       </div>
     </div>
 
@@ -295,8 +300,9 @@
       }).join("");
     }
 
-    function renderStudentReport(container, teacher, classEntry, partialNumber) {
-      const partial = classEntry.partials.find(item => Number(item.Numero) === partialNumber);
+    function renderStudentReport(container, teacher, classEntry, partialNumber, partialId) {
+      const partial = classEntry.partials.find(item => item.id === partialId)
+        || classEntry.partials.find(item => Number(item.Numero) === partialNumber);
       const records = partial ? classEntry.records.filter(record => record.ParcialId === partial.id) : [];
       const report = container.querySelector(".student-report");
       if (!partial || !records.length) {
@@ -353,13 +359,19 @@
         teacherRow.querySelectorAll("[data-class-index]").forEach(button => button.setAttribute("aria-pressed", String(button === classButton)));
         const partialList = teacherRow.querySelector(".partial-list");
         partialList.hidden = false;
-        partialList.innerHTML = `<div class="partial-buttons">${Array.from({ length: 6 }, (_, index) => `<button type="button" class="student-choice" data-partial-number="${index + 1}" aria-pressed="false">Parcial ${index + 1}</button>`).join("")}</div><div class="student-report">Selecciona un parcial para consultar el reporte.</div>`;
+        partialList.innerHTML = `<div class="partial-buttons">${Array.from({ length: 6 }, (_, index) => {
+          const partialNumber = index + 1;
+          const partial = classEntry.partials.find(item => Number(item.Numero) === partialNumber);
+          const recordCount = partial ? classEntry.records.filter(record => record.ParcialId === partial.id).length : 0;
+          const status = recordCount ? `${recordCount} registro(s)` : partial ? "Sin calificaciones" : "Sin configurar";
+          return `<button type="button" class="student-choice partial-choice" data-partial-number="${partialNumber}" data-partial-id="${escapeHtml(partial?.id || "")}" aria-pressed="false"><span>Parcial ${partialNumber}</span><small>${status}</small></button>`;
+        }).join("")}</div><div class="student-report">Selecciona un parcial para consultar el reporte.</div>`;
         partialList.dataset.classIndex = classButton.dataset.classIndex;
       } else if (partialButton) {
         const partialList = teacherRow.querySelector(".partial-list");
         const classEntry = teacher.classes[Number(partialList.dataset.classIndex)];
         teacherRow.querySelectorAll("[data-partial-number]").forEach(button => button.setAttribute("aria-pressed", String(button === partialButton)));
-        renderStudentReport(partialList, teacher, classEntry, Number(partialButton.dataset.partialNumber));
+        renderStudentReport(partialList, teacher, classEntry, Number(partialButton.dataset.partialNumber), partialButton.dataset.partialId);
       }
     });
 
