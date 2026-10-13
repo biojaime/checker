@@ -358,7 +358,8 @@
         const evidence = (record?.Evidencias || []).map((item, index) => {
           try {
             const url = new URL(item.url);
-            return url.protocol === "https:" ? `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener">${escapeHtml(item.nombre || `Evidencia ${index + 1}`)}</a>` : "";
+            const link = new URL(item.driveUrl || item.url);
+            return url.protocol === "https:" && link.protocol === "https:" ? `<a href="${escapeHtml(link.href)}" target="_blank" rel="noopener">${escapeHtml(item.nombre || `Evidencia ${index + 1}`)}</a>` : "";
           } catch (error) { return ""; }
         }).filter(Boolean).join(" · ");
         const band = getGradeBand(grade);
@@ -386,9 +387,10 @@
       const evidenceCards = criteria.flatMap(criterion => (recordsByCriterion.get(criterion.nombre)?.Evidencias || []).map((item, index) => {
         try {
           const url = new URL(item.url);
-          if (url.protocol !== "https:") return "";
+          const link = new URL(item.driveUrl || item.url);
+          if (url.protocol !== "https:" || link.protocol !== "https:") return "";
           const label = item.nombre || `Evidencia ${index + 1}`;
-          return `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener"><img src="${escapeHtml(url.href)}" alt="Evidencia de ${escapeHtml(criterion.nombre)}"><span>${escapeHtml(criterion.nombre)} · ${escapeHtml(label)}</span></a>`;
+          return `<a href="${escapeHtml(link.href)}" target="_blank" rel="noopener"><img src="${escapeHtml(url.href)}" alt="Evidencia de ${escapeHtml(criterion.nombre)}"><span>${escapeHtml(criterion.nombre)} · ${escapeHtml(label)}</span></a>`;
         } catch (error) { return ""; }
       })).filter(Boolean).join("");
       const exam = criteria.find(criterion => /examen/i.test(criterion.nombre));

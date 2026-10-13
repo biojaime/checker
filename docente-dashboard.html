@@ -793,17 +793,17 @@
 <div class="modal-bg" id="modal-google-oauth">
   <div class="modal" style="max-width:560px;">
     <div class="modal-head">
-      <h3>Configurar envío con Google</h3>
+      <h3>Configurar envío con Gmail</h3>
       <button class="modal-close" onclick="closeModal('modal-google-oauth')">×</button>
     </div>
     <div class="modal-body">
-      <p style="margin-bottom:12px;">En Google Cloud, habilita Gmail API y registra este origen en el cliente OAuth de tipo Aplicación web, en “Orígenes autorizados de JavaScript”.</p>
+      <p style="margin-bottom:12px;">Esta configuración se usa solo para Gmail. En Google Cloud, habilita Gmail API y registra este origen en “Orígenes autorizados de JavaScript” del cliente OAuth web.</p>
       <p id="google-oauth-origin" style="padding:10px;background:#f8fafc;border-radius:8px;font-size:.85rem;overflow-wrap:anywhere;"></p>
       <div class="fgroup">
-        <label for="google-oauth-client-id">ID de cliente OAuth</label>
+        <label for="google-oauth-client-id">ID de cliente OAuth para Gmail</label>
         <input class="finput" id="google-oauth-client-id" type="text" placeholder="123456789.apps.googleusercontent.com" autocomplete="off">
       </div>
-      <p style="font-size:0.8rem; color:var(--muted);">El ID se guarda únicamente en este navegador. MaderoChecker no solicita ni guarda contraseñas.</p>
+      <p style="font-size:0.8rem; color:var(--muted);">Se guarda únicamente en este navegador. Al enviar, cada docente autoriza su propia cuenta de Google.</p>
     </div>
     <div class="modal-foot">
       <button class="btn btn-gray" onclick="closeModal('modal-google-oauth')">Cancelar</button>
@@ -814,7 +814,6 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="firebase-init.js"></script>
@@ -826,9 +825,10 @@ if (!["Docente","Docente (tutor)","admin"].includes(sessionStorage.getItem("user
   window.location.href = "index.html";
 }
 const DOCENTE_ID = sessionStorage.getItem("username") || "";
-// Configure the Google OAuth web client ID after enabling Gmail API access.
 const GOOGLE_OAUTH_CLIENT_ID_KEY = "maderoGoogleOAuthClientId";
 let GOOGLE_OAUTH_CLIENT_ID = localStorage.getItem(GOOGLE_OAUTH_CLIENT_ID_KEY) || "";
+const GOOGLE_DRIVE_OAUTH_CLIENT_ID = "934750315822-oje7hju675cm96bgantfout2fg7uniko.apps.googleusercontent.com";
+const GOOGLE_DRIVE_EVIDENCE_FOLDER_ID = "1303wcL3CRp63I85AghWb9wHHH3_chA_X";
 
 // ════════════════════════════════════════
 // GLOBAL STATE
@@ -903,12 +903,57 @@ function partialCommentDocId(parcialId, matricula) {
   return `${DOCENTE_ID}_${encodeURIComponent(parcialId)}_${encodeURIComponent(matricula)}`;
 }
 
+function openGoogleOAuthSetup() {
+  document.getElementById("google-oauth-client-id").value = GOOGLE_OAUTH_CLIENT_ID;
+  document.getElementById("google-oauth-origin").textContent = `Origen que debes autorizar: ${window.location.origin}`;
+  openModal("modal-google-oauth");
+}
+
+function requestGoogleAccessToken(scope) {
+  return new Promise((resolve, reject) => {
+    if (!window.google?.accounts?.oauth2) return reject(new Error("No se pudo cargar la autorización de Google."));
+    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_DRIVE_OAUTH_CLIENT_ID,
+      scope,
+      callback: response => {
+        if (response.error || !response.access_token) {
+          reject(new Error(response.error_description || "Google no autorizó el acceso."));
+          return;
+        }
+        resolve(response.access_token);
+      },
+      error_callback: error => reject(new Error(error.message || "Google rechazó la autorización."))
+    });
+    tokenClient.requestAccessToken({ prompt: "select_account" });
+  });
+}
+
+async function uploadEvidenceToDrive(file, name, accessToken) {
+  const boundary = `madero-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const metadata = { name, mimeType: file.type, parents: [GOOGLE_DRIVE_EVIDENCE_FOLDER_ID] };
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,
+    `--${boundary}\r\nContent-Type: ${file.type}\r\n\r\n`,
+    file,
+    `\r\n--${boundary}--`
+  ]);
+  const response = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": `multipart/related; boundary=${boundary}` },
+    body
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error?.message || `Drive respondió HTTP ${response.status}.`);
+  return result;
+}
+
 function renderEvidenceLinks(evidences = []) {
   return evidences.map((evidence, index) => {
     try {
       const url = new URL(evidence.url);
-      if (url.protocol !== "https:") return "";
-      return `<a href="${h(url.href)}" target="_blank" rel="noopener">${h(evidence.nombre || `Imagen ${index + 1}`)}</a>`;
+      const link = new URL(evidence.driveUrl || evidence.url);
+      if (url.protocol !== "https:" || link.protocol !== "https:") return "";
+      return `<a href="${h(link.href)}" target="_blank" rel="noopener">${h(evidence.nombre || `Imagen ${index + 1}`)}</a>`;
     } catch (error) { return ""; }
   }).filter(Boolean).join(" · ");
 }
@@ -917,8 +962,9 @@ function renderEvidenceGallery(criteria) {
   return criteria.flatMap(criterion => (criterion.evidence || []).map((evidence, index) => {
     try {
       const url = new URL(evidence.url);
-      if (url.protocol !== "https:") return "";
-      return `<a href="${h(url.href)}" target="_blank" rel="noopener" style="display:block;color:inherit;text-decoration:none;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;"><img src="${h(url.href)}" alt="Evidencia de ${h(criterion.name)}" style="width:100%;height:110px;object-fit:cover;display:block;"><span style="display:block;padding:6px;font-size:.78rem;">${h(criterion.name)} · ${h(evidence.nombre || `Imagen ${index + 1}`)}</span></a>`;
+      const link = new URL(evidence.driveUrl || evidence.url);
+      if (url.protocol !== "https:" || link.protocol !== "https:") return "";
+      return `<a href="${h(link.href)}" target="_blank" rel="noopener" style="display:block;color:inherit;text-decoration:none;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;"><img src="${h(url.href)}" alt="Evidencia de ${h(criterion.name)}" style="width:100%;height:110px;object-fit:cover;display:block;"><span style="display:block;padding:6px;font-size:.78rem;">${h(criterion.name)} · ${h(evidence.nombre || `Imagen ${index + 1}`)}</span></a>`;
     } catch (error) { return ""; }
   })).filter(Boolean).join("");
 }
@@ -1541,10 +1587,13 @@ async function subirEvidencias(input) {
   if (!clase || !parcialId || !criterio || !matricula || !files.length) return;
   const recordId = `${DOCENTE_ID}_${parcialId}_${criterio.replace(/\s/g, "")}_${matricula}`;
   const recordRef = db.collection("Calificaciones").doc(recordId);
-  const storage = firebase.storage();
   const safePart = value => String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "sin-dato";
   const parcialNumero = cacheParciales.find(parcial => parcial.id === parcialId)?.Numero || parcialId;
   const button = input;
+  if (!GOOGLE_DRIVE_OAUTH_CLIENT_ID) {
+    toast("No está configurado el cliente OAuth de Google.", "err");
+    return;
+  }
   button.disabled = true;
   try {
     const current = await recordRef.get();
@@ -1552,13 +1601,22 @@ async function subirEvidencias(input) {
     for (const file of files) {
       if (!file.type.startsWith("image/")) throw new Error("Solo se permiten imágenes.");
       if (file.size > 5 * 1024 * 1024) throw new Error(`${file.name} supera el límite de 5 MB.`);
+    }
+    const accessToken = await requestGoogleAccessToken("https://www.googleapis.com/auth/drive.file");
+    for (const file of files) {
       const extension = file.name.match(/\.([a-zA-Z0-9]{1,10})$/)?.[1] || "jpg";
       const evidenceNumber = String(evidences.length + 1).padStart(3, "0");
       const nombre = `${safePart(matricula)}-parcial-${safePart(parcialNumero)}-${safePart(clase)}-evidencia-${evidenceNumber}.${extension}`;
-      const path = `${safePart(DOCENTE_ID)}/${safePart(parcialId)}/${safePart(matricula)}/${nombre}`;
-      const uploaded = await storage.ref(path).put(file, { contentType: file.type });
-      const url = await uploaded.ref.getDownloadURL();
-      evidences.push({ url, nombre, nombreOriginal: file.name, rutaStorage: path, fecha: new Date().toISOString() });
+      const uploaded = await uploadEvidenceToDrive(file, nombre, accessToken);
+      const url = `https://drive.google.com/uc?export=view&id=${encodeURIComponent(uploaded.id)}`;
+      evidences.push({
+        url,
+        driveUrl: uploaded.webViewLink || `https://drive.google.com/file/d/${encodeURIComponent(uploaded.id)}/view`,
+        driveFileId: uploaded.id,
+        nombre,
+        nombreOriginal: file.name,
+        fecha: new Date().toISOString()
+      });
       await recordRef.set({
         DocenteId: DOCENTE_ID,
         AlumnoMatricula: matricula,
@@ -1571,7 +1629,7 @@ async function subirEvidencias(input) {
       }, { merge: true });
       document.querySelector(`[data-evidence-links="${matricula}"]`).innerHTML = renderEvidenceLinks(evidences);
     }
-    toast("Evidencia guardada", "ok");
+    toast("Evidencia guardada en Google Drive", "ok");
   } catch (error) {
     toast(`No se pudo subir la evidencia${error.code ? ` (${error.code})` : ""}: ${error.message}`, "err");
   } finally {
@@ -2252,9 +2310,7 @@ async function sendIndividualReport() {
     return;
   }
   if (!GOOGLE_OAUTH_CLIENT_ID) {
-    document.getElementById("google-oauth-client-id").value = "";
-    document.getElementById("google-oauth-origin").textContent = `Origen que debes autorizar: ${window.location.origin}`;
-    openModal("modal-google-oauth");
+    openGoogleOAuthSetup();
     return;
   }
   if (!window.google?.accounts?.oauth2) {
@@ -2311,7 +2367,7 @@ async function sendIndividualReport() {
 
 function saveGoogleOAuthClientId() {
   if (window.location.protocol === "file:") {
-    toast("Primero abre MaderoChecker desde localhost o un dominio HTTPS; Google OAuth no admite file://.", "warn");
+    toast("Primero abre MaderoChecker mediante localhost o HTTPS; Google OAuth no admite file://.", "warn");
     return;
   }
   const clientId = document.getElementById("google-oauth-client-id").value.trim();
@@ -2322,7 +2378,7 @@ function saveGoogleOAuthClientId() {
   localStorage.setItem(GOOGLE_OAUTH_CLIENT_ID_KEY, clientId);
   GOOGLE_OAUTH_CLIENT_ID = clientId;
   closeModal("modal-google-oauth");
-  toast("Configuración guardada. Abriendo autorización de Google…", "ok");
+  toast("Configuración de Gmail guardada. Elige la cuenta para enviar.", "ok");
   sendIndividualReport();
 }
 
