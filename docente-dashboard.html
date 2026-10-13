@@ -1542,19 +1542,23 @@ async function subirEvidencias(input) {
   const recordId = `${DOCENTE_ID}_${parcialId}_${criterio.replace(/\s/g, "")}_${matricula}`;
   const recordRef = db.collection("Calificaciones").doc(recordId);
   const storage = firebase.storage();
+  const safePart = value => String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "sin-dato";
+  const parcialNumero = cacheParciales.find(parcial => parcial.id === parcialId)?.Numero || parcialId;
   const button = input;
   button.disabled = true;
   try {
+    const current = await recordRef.get();
+    const evidences = current.exists ? current.data().Evidencias || [] : [];
     for (const file of files) {
       if (!file.type.startsWith("image/")) throw new Error("Solo se permiten imágenes.");
       if (file.size > 5 * 1024 * 1024) throw new Error(`${file.name} supera el límite de 5 MB.`);
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `${DOCENTE_ID}/${parcialId}/${matricula}/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`;
+      const extension = file.name.match(/\.([a-zA-Z0-9]{1,10})$/)?.[1] || "jpg";
+      const evidenceNumber = String(evidences.length + 1).padStart(3, "0");
+      const nombre = `${safePart(matricula)}-parcial-${safePart(parcialNumero)}-${safePart(clase)}-evidencia-${evidenceNumber}.${extension}`;
+      const path = `${safePart(DOCENTE_ID)}/${safePart(parcialId)}/${safePart(matricula)}/${nombre}`;
       const uploaded = await storage.ref(path).put(file, { contentType: file.type });
       const url = await uploaded.ref.getDownloadURL();
-      const current = await recordRef.get();
-      const evidences = current.exists ? current.data().Evidencias || [] : [];
-      evidences.push({ url, nombre: file.name, fecha: new Date().toISOString() });
+      evidences.push({ url, nombre, nombreOriginal: file.name, rutaStorage: path, fecha: new Date().toISOString() });
       await recordRef.set({
         DocenteId: DOCENTE_ID,
         AlumnoMatricula: matricula,
@@ -1569,7 +1573,7 @@ async function subirEvidencias(input) {
     }
     toast("Evidencia guardada", "ok");
   } catch (error) {
-    toast("No se pudo subir la evidencia: " + error.message, "err");
+    toast(`No se pudo subir la evidencia${error.code ? ` (${error.code})` : ""}: ${error.message}`, "err");
   } finally {
     button.disabled = false;
   }
