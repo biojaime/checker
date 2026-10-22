@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MaderoChecker – Panel Administrativo</title>
+  <link rel="icon" type="image/png" href="ICONO%20Madero.png">
+  <link rel="apple-touch-icon" href="ICONO%20Madero.png">
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -413,6 +416,14 @@
           <span class="nav-card-sub">Importar CSV</span>
         </div>
       </button>
+
+      <button class="nav-card" data-panel="asesores">
+        <div class="nav-card-icon purple">📬</div>
+        <div class="nav-card-text">
+          <span class="nav-card-title">Asesores por salón</span>
+          <span class="nav-card-sub">Nombre y correo de contacto</span>
+        </div>
+      </button>
     </div>
 
     <div class="sidebar-footer">
@@ -628,6 +639,47 @@
         </div>
       </div>
 
+      <div class="panel" id="panel-asesores">
+        <div class="card">
+          <div class="card-header"><h2>📬 Asignar asesor a un salón</h2></div>
+          <div style="padding:1.4rem;">
+            <form id="advisor-assignment-form">
+              <div class="form-grid">
+                <div class="fgroup">
+                  <label for="advisor-grade">Grado *</label>
+                  <select class="fselect" id="advisor-grade" required>
+                    <option value="1">1ro de Secundaria</option><option value="2">2do de Secundaria</option><option value="3">3ro de Secundaria</option>
+                  </select>
+                </div>
+                <div class="fgroup">
+                  <label for="advisor-group">Grupo *</label>
+                  <select class="fselect" id="advisor-group" required>
+                    <option>A</option><option>B</option><option>C</option><option>D</option>
+                  </select>
+                </div>
+                <div class="fgroup">
+                  <label for="advisor-name">Nombre del asesor *</label>
+                  <input class="finput" id="advisor-name" required placeholder="Nombre completo">
+                </div>
+                <div class="fgroup">
+                  <label for="advisor-email">Correo del asesor *</label>
+                  <input class="finput" id="advisor-email" type="email" required placeholder="asesor@institucion.edu">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-lg" type="submit" id="btn-save-advisor">Guardar asignación</button>
+            </form>
+          </div>
+        </div>
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-header"><h2>Asesores asignados</h2></div>
+          <div class="table-wrap">
+            <table class="tbl"><thead><tr><th>Salón</th><th>Asesor</th><th>Correo</th><th>Acciones</th></tr></thead>
+              <tbody id="advisor-assignments"><tr class="tbl-empty"><td colspan="4">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /page-content -->
   </div><!-- /main -->
 </div><!-- /shell -->
@@ -710,6 +762,7 @@
   </div>
 </div>
 
+<script src="pwa.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 <script src="firebase-init.js"></script>
@@ -796,7 +849,8 @@ const panelMeta = {
   alumnos:     { title: "Gestión de Alumnos",         sub: "Filtra por grado y grupo",               chip: "🎓 Alumnos"     },
   docentes:    { title: "Docentes & Tutores",          sub: "Asigna materias y roles",               chip: "👨‍🏫 Docentes"   },
   manual:      { title: "Registrar Manualmente",      sub: "Añade un usuario directamente",          chip: "✏️ Manual"      },
-  csv:         { title: "Subir Salón (CSV)",           sub: "Importación masiva de alumnos",          chip: "📁 CSV"         }
+  csv:         { title: "Subir Salón (CSV)",           sub: "Importación masiva de alumnos",          chip: "📁 CSV"         },
+  asesores:    { title: "Asesores por salón",          sub: "Asigna nombre y correo a cada grupo",   chip: "📬 Asesores"    }
 };
 
 document.querySelectorAll(".nav-card[data-panel]").forEach(btn => {
@@ -819,6 +873,7 @@ document.querySelectorAll(".nav-card[data-panel]").forEach(btn => {
 let cacheAlumnos     = [];
 let cacheDocentes    = [];
 let cacheSolicitudes = [];
+let cacheAsesores    = [];
 let almGradeFilter   = "";
 let almGroupFilter   = "";
 let rolFilter        = "";
@@ -845,11 +900,19 @@ async function loadAll() {
       ...ds1.docs.map(d => ({ id: d.id, ...d.data() })),
       ...ds2.docs.map(d => ({ id: d.id, ...d.data() }))
     ];
+    try {
+      const asesorSnap = await db.collection("Asesores").get();
+      cacheAsesores = asesorSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (error) {
+      cacheAsesores = [];
+      toast("No se pudieron cargar los asesores: " + error.message, "err");
+    }
 
     updateStats();
     renderSolicitudes();
     renderAlumnos();
     renderDocentes();
+    renderAsesores();
   } catch (e) {
     toast("Error cargando datos: " + e.message, "err");
     console.error(e);
@@ -864,6 +927,78 @@ function updateStats() {
   document.getElementById("nb-alm").textContent = cacheAlumnos.length;
   document.getElementById("nb-doc").textContent = cacheDocentes.length;
 }
+
+function renderAsesores() {
+  const tbody = document.getElementById("advisor-assignments");
+  if (!cacheAsesores.length) {
+    tbody.innerHTML = `<tr class="tbl-empty"><td colspan="4">No hay asesores asignados todavía.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = cacheAsesores
+    .sort((a, b) => a.id.localeCompare(b.id, "es", { numeric: true }))
+    .map(advisor => `<tr>
+      <td><strong>${h(advisor.id)}</strong></td>
+      <td>${h(advisor.Nombre || "—")}</td>
+      <td>${h(advisor.Correo || "—")}</td>
+      <td><button class="btn btn-gray" data-advisor-edit="${h(advisor.id)}">Editar</button>
+      <button class="btn btn-red" data-advisor-delete="${h(advisor.id)}">Eliminar</button></td>
+    </tr>`).join("");
+}
+
+document.getElementById("advisor-assignments").addEventListener("click", event => {
+  const editButton = event.target.closest("[data-advisor-edit]");
+  const deleteButton = event.target.closest("[data-advisor-delete]");
+  if (editButton) editAdvisor(editButton.dataset.advisorEdit);
+  if (deleteButton) deleteAdvisor(deleteButton.dataset.advisorDelete);
+});
+
+function editAdvisor(salon) {
+  const advisor = cacheAsesores.find(item => item.id === salon);
+  if (!advisor) return;
+  document.getElementById("advisor-grade").value = salon.charAt(0);
+  document.getElementById("advisor-group").value = salon.slice(1);
+  document.getElementById("advisor-name").value = advisor.Nombre || "";
+  document.getElementById("advisor-email").value = advisor.Correo || "";
+  document.getElementById("advisor-name").focus();
+}
+
+async function deleteAdvisor(salon) {
+  if (!confirm(`¿Eliminar la asignación del asesor para ${salon}?`)) return;
+  try {
+    await db.collection("Asesores").doc(salon).delete();
+    cacheAsesores = cacheAsesores.filter(item => item.id !== salon);
+    renderAsesores();
+    toast(`Se eliminó el asesor de ${salon}`, "ok");
+  } catch (error) {
+    toast("No se pudo eliminar la asignación: " + error.message, "err");
+  }
+}
+
+document.getElementById("advisor-assignment-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const salon = `${document.getElementById("advisor-grade").value}${document.getElementById("advisor-group").value}`;
+  const nombre = document.getElementById("advisor-name").value.trim();
+  const correo = document.getElementById("advisor-email").value.trim();
+  const button = document.getElementById("btn-save-advisor");
+  if (!nombre || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+    toast("Escribe el nombre del asesor y un correo válido.", "warn");
+    return;
+  }
+  button.disabled = true;
+  try {
+    const assignment = { Salon: salon, Nombre: nombre, Correo: correo, Actualizado: new Date().toISOString() };
+    await db.collection("Asesores").doc(salon).set(assignment);
+    cacheAsesores = [...cacheAsesores.filter(item => item.id !== salon), { id: salon, ...assignment }];
+    renderAsesores();
+    toast(`Asesor asignado al salón ${salon}`, "ok");
+    document.getElementById("advisor-name").value = "";
+    document.getElementById("advisor-email").value = "";
+  } catch (error) {
+    toast("No se pudo guardar la asignación: " + error.message, "err");
+  } finally {
+    button.disabled = false;
+  }
+});
 
 // ════════════════════════════════════════
 // RENDER SOLICITUDES

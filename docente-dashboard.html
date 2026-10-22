@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MaderoChecker – Portal Docente</title>
+  <link rel="icon" type="image/png" href="ICONO%20Madero.png">
+  <link rel="apple-touch-icon" href="ICONO%20Madero.png">
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -415,6 +418,14 @@
         </div>
       </button>
 
+      <button class="nav-card" data-panel="reporte-cita">
+        <div class="nav-icon amber">✉️</div>
+        <div class="nav-card-text">
+          <span class="nav-card-title">Generar reporte o cita</span>
+          <span class="nav-card-sub">Contactar al asesor del grupo</span>
+        </div>
+      </button>
+
       <button class="nav-card" data-panel="alumnos">
         <div class="nav-icon red">🔍</div>
         <div class="nav-card-text">
@@ -608,6 +619,56 @@
         </div>
       </div>
 
+      <div class="panel" id="panel-reporte-cita">
+        <div class="card">
+          <div class="card-header"><h2>✉️ Generar reporte o solicitar cita</h2></div>
+          <form id="advisor-report-form" style="padding:1.4rem;">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <div class="fgroup" style="min-width:220px;flex:1;">
+                <label for="advisor-report-class">Materia</label>
+                <select class="fselect" id="advisor-report-class" required><option value="">— Selecciona materia —</option></select>
+              </div>
+              <div class="fgroup" style="min-width:130px;">
+                <label for="advisor-report-group">Grupo</label>
+                <select class="fselect" id="advisor-report-group" required disabled><option value="">— Grupo —</option></select>
+              </div>
+              <div class="fgroup" style="min-width:220px;flex:1;">
+                <label for="advisor-report-student">Alumno</label>
+                <select class="fselect" id="advisor-report-student" required disabled><option value="">— Selecciona alumno —</option></select>
+              </div>
+              <div class="fgroup" style="min-width:160px;">
+                <label for="advisor-report-partial">Parcial (opcional)</label>
+                <select class="fselect" id="advisor-report-partial"><option value="">— Sin parcial —</option></select>
+              </div>
+              <div class="fgroup" style="min-width:180px;">
+                <label for="advisor-report-appointment">¿Solicitar cita?</label>
+                <select class="fselect" id="advisor-report-appointment">
+                  <option value="no">No, solo enviar reporte</option>
+                  <option value="yes">Sí, solicitar cita</option>
+                </select>
+              </div>
+            </div>
+            <div class="fgroup" style="margin-top:12px;">
+              <label for="advisor-report-reason">Motivo detallado del reporte *</label>
+              <textarea class="finput" id="advisor-report-reason" rows="5" required placeholder="Describe la situación, observaciones y seguimiento recomendado."></textarea>
+            </div>
+            <div class="fgroup" style="margin-top:12px;">
+              <label for="advisor-report-recipient">Destinatario asignado</label>
+              <input class="finput" id="advisor-report-recipient" readonly>
+            </div>
+            <div class="fgroup" style="margin-top:12px;">
+              <label for="advisor-report-subject">Asunto del correo</label>
+              <input class="finput" id="advisor-report-subject">
+            </div>
+            <div class="fgroup" style="margin-top:12px;">
+              <label for="advisor-report-preview">Vista previa del correo (puedes editar el contenido antes de enviar)</label>
+              <textarea class="finput" id="advisor-report-preview" rows="10"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" id="btn-send-advisor-report">Enviar al asesor</button>
+          </form>
+        </div>
+      </div>
+
       <!-- ══ PANEL: ALUMNOS ══ -->
       <div class="panel" id="panel-alumnos">
         <div class="card">
@@ -630,6 +691,23 @@
     </div><!-- /page -->
   </div><!-- /main -->
 </div><!-- /shell -->
+
+<div class="modal-bg" id="modal-boleta-envio">
+  <div class="modal" style="width:min(980px,calc(100vw - 2rem));max-width:980px;max-height:92vh;overflow:auto;">
+    <div class="modal-head">
+      <h3>Vista previa de reportes individuales</h3>
+      <button class="modal-close" onclick="closeModal('modal-boleta-envio')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px;">Cada alumno recibirá únicamente su propio reporte. Revisa y corrige las calificaciones u observaciones antes del envío.</p>
+      <div id="boleta-email-preview"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gray" onclick="closeModal('modal-boleta-envio')">Cancelar</button>
+      <button class="btn btn-primary btn-lg" id="btn-confirm-boleta-send" onclick="sendBoletaReports()">Enviar reportes</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ MODAL: PARCIAL ═══ -->
 <div class="modal-bg" id="modal-parcial">
@@ -769,8 +847,9 @@
         </select>
       </div>
       <div class="fgroup" id="report-advisor-wrap" style="display:none;">
-        <label for="report-advisor-email">Correo del asesor</label>
+        <label for="report-advisor-email">Correo del asesor asignado al salón</label>
         <input class="finput" type="email" id="report-advisor-email" placeholder="asesor@institucion.edu">
+        <small id="report-advisor-assignment" style="display:block;margin-top:5px;color:var(--muted);"></small>
       </div>
       <div class="fgroup" style="margin-top:8px;">
         <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="report-send-parent"> Incluir padre o tutor</label>
@@ -812,6 +891,7 @@
   </div>
 </div>
 
+<script src="pwa.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -840,6 +920,11 @@ let calAlumnos    = [];   // current grade+group students for grading
 let COLORS = ["","teal-card","amber-card"];  // class card cycling
 let individualReports = {};
 let boletaAlumnos = [];
+let boletaReportData = [];
+let gmailActionAfterSetup = null;
+let advisorReportAssignment = null;
+let advisorReportGradeSummary = "No se seleccionó un parcial para incluir calificaciones.";
+let advisorReportGradeRequest = "";
 let gradeSaveTimer = null;
 let gradeSaveInProgress = false;
 let gradeSavePromise = null;
@@ -978,6 +1063,7 @@ const panelMeta = {
   parciales:       { title:"Parciales",              sub:"Gestión de criterios y evaluación",chip:"📋 Parciales" },
   calificaciones:  { title:"Captura de Calificaciones",sub:"Califica por clase y parcial", chip:"✏️ Calificaciones" },
   boletas:         { title:"Boletas",                sub:"Consulta e impresión",           chip:"🧾 Boletas" },
+  "reporte-cita":  { title:"Generar reporte o cita", sub:"Contacta al asesor asignado",    chip:"✉️ Reporte / cita" },
   alumnos:         { title:"Consulta de Alumnos",    sub:"Búsqueda por matrícula o nombre", chip:"🔍 Alumnos" }
 };
 
@@ -1047,7 +1133,7 @@ async function loadDocente() {
 // POPULATE ALL CLASS SELECTORS
 // ════════════════════════════════════════
 function populateClassSelects(clases) {
-  const ids = ["mp-clase","cal-clase","parcial-clase-filter","boleta-clase"];
+  const ids = ["mp-clase","cal-clase","parcial-clase-filter","boleta-clase","advisor-report-class"];
   ids.forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
@@ -1811,6 +1897,7 @@ async function onBoletaGrupoChange() {
 
 function resetBoletaStudents() {
   boletaAlumnos = [];
+  boletaReportData = [];
   document.getElementById("boleta-results").innerHTML = "";
   updateBoletaButton();
 }
@@ -1855,6 +1942,23 @@ async function generarBoleta() {
       const comment = commentSnap.exists
         ? commentSnap.data().Comentario || ""
         : studentRecords.find(record => record.Comentario)?.Comentario || "";
+      boletaReportData[index] = {
+        alumno,
+        parcial,
+        clase,
+        items: criteria.map(criterion => {
+          const record = grades.get(criterion.nombre) || {};
+          return {
+            ...record,
+            Criterio: criterion.nombre,
+            Calificacion: record.Calificacion ?? "",
+            Observaciones: record.Observaciones || "",
+            Evidencias: record.Evidencias || []
+          };
+        }),
+        comentarioParcial: comment,
+        enviado: false
+      };
       const colorClass = !complete ? "grade-pending" : weightedGrade >= 7 ? "grade-green" : weightedGrade >= 6 ? "grade-yellow" : "grade-red";
       const gradeLabel = complete ? weightedGrade.toFixed(2) : `Pendiente · ${capturedWeight}% capturado`;
       return `<tr><td>${index + 1}</td><td>${h(alumnoId)}</td><td>${h(nombreListaAlumno(alumno) || "—")}</td><td><strong class="${colorClass}">${gradeLabel}</strong></td><td>${h(comment || "—")}</td></tr>`;
@@ -1865,7 +1969,7 @@ async function generarBoleta() {
     const resumenHtml = `<header class="boleta-heading"><h1>Promedios del grupo</h1><p>${h(clase)} · Grado ${h(grado)} · Grupo ${h(grupo)} · ${h(getPeriodLabel(parcial))}</p></header>
       <div class="boleta-legend"><span class="grade-green">7 a 10 · Aprobado</span><span class="grade-yellow">6 a 6.9 · En seguimiento</span><span class="grade-red">Menos de 6 · Requiere apoyo</span><span class="grade-pending">Parcial incompleto</span></div>
       <div class="table-wrap"><table class="tbl boleta-summary-table"><thead><tr><th>#</th><th>Matrícula</th><th>Alumno</th><th>Promedio del parcial</th><th>Comentario general</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
-    document.getElementById("boleta-results").innerHTML = `${resumenHtml}<button class="btn btn-primary" style="margin-top:12px;" onclick="imprimirBoletaGrupo()">Imprimir listado</button>`;
+    document.getElementById("boleta-results").innerHTML = `${resumenHtml}<div class="boleta-action-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="btn btn-primary" onclick="imprimirBoletaGrupo()">Imprimir listado</button><button class="btn btn-indigo" onclick="openBoletaEmailPreview()">✉️ Enviar reportes individuales</button></div>`;
   } catch (error) {
     toast("No se pudo generar la boleta: " + error.message, "err");
   } finally {
@@ -1877,7 +1981,7 @@ async function generarBoleta() {
 function imprimirBoletaGrupo() {
   const clase = document.getElementById("boleta-clase").value;
   const summaryContent = document.getElementById("boleta-results").cloneNode(true);
-  summaryContent.querySelector("button")?.remove();
+  summaryContent.querySelector(".boleta-action-buttons")?.remove();
   if (!summaryContent.querySelector(".boleta-summary-table")) return;
   const printWindow = window.open("", "_blank");
   if (!printWindow) { toast("Permite ventanas emergentes para imprimir el listado", "warn"); return; }
@@ -1885,6 +1989,113 @@ function imprimirBoletaGrupo() {
     <style>body{font:14px Arial,sans-serif;color:#17202a;margin:28px}.boleta-heading h1{font-size:22px;margin:0 0 6px}.boleta-heading p{color:#475569;margin:0 0 18px}.boleta-legend{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;font-size:12px;font-weight:bold}.boleta-legend span,.boleta-summary-table strong{display:inline-block;padding:4px 8px;border-radius:6px}.grade-green{color:#15803d;background:#dcfce7}.grade-yellow{color:#b45309;background:#fef3c7}.grade-red{color:#dc2626;background:#fee2e2}.grade-pending{color:#64748b;background:#f1f5f9}table{width:100%;border-collapse:collapse}th,td{padding:9px;border:1px solid #cbd5e1;text-align:left;vertical-align:top}th{background:#f1f5f9}@media print{body{margin:12mm}}</style>
     ${summaryContent.innerHTML}<script>window.onload=()=>window.print()<\/script></html>`);
   printWindow.document.close();
+}
+
+function openBoletaEmailPreview() {
+  if (!boletaReportData.length) {
+    toast("Primero genera la boleta del grupo.", "warn");
+    return;
+  }
+  const missingEmails = boletaReportData.filter(report => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(report.alumno.Correo || "").trim()));
+  if (missingEmails.length) {
+    toast(`Falta un correo válido para ${missingEmails.length} alumno(s). Corrige sus datos antes de enviar.`, "warn");
+    return;
+  }
+  renderBoletaEmailPreview();
+  openModal("modal-boleta-envio");
+}
+
+function renderBoletaEmailPreview() {
+  const preview = document.getElementById("boleta-email-preview");
+  preview.innerHTML = boletaReportData.map((report, reportIndex) => {
+    const alumno = report.alumno;
+    const gradeSummary = getBoletaEmailGradeSummary(report);
+    const gradeRows = report.items.map((item, criterionIndex) => `<tr>
+      <td>${h(item.Criterio)}</td>
+      <td><input class="finput boleta-grade-edit" type="number" min="0" max="10" step="0.1" value="${h(item.Calificacion)}" data-report="${reportIndex}" data-criterion="${criterionIndex}" aria-label="Calificación de ${h(item.Criterio)} para ${h(nombreListaAlumno(alumno))}"></td>
+      <td><input class="finput boleta-observation-edit" value="${h(item.Observaciones)}" data-report="${reportIndex}" data-criterion="${criterionIndex}" aria-label="Observación de ${h(item.Criterio)} para ${h(nombreListaAlumno(alumno))}"></td>
+    </tr>`).join("");
+    return `<section style="border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px 0;">
+      <h4>${h(nombreListaAlumno(alumno) || "Alumno")} · ${h(alumno.Correo)}${report.enviado ? " · Enviado" : ""}</h4>
+      <p style="font-size:.82rem;color:var(--muted);margin:4px 0 10px;">${h(report.clase)} · ${h(getPeriodLabel(report.parcial))} · ${h(alumno.Grado || "—")} ${h(alumno.Grupo || "—")}</p>
+      <p id="boleta-email-total-${reportIndex}" style="margin:8px 0;font-weight:700;">${h(gradeSummary)}</p>
+      <div class="table-wrap"><table class="tbl"><thead><tr><th>Criterio</th><th>Calificación (0–10)</th><th>Observación</th></tr></thead><tbody>${gradeRows}</tbody></table></div>
+      <label class="fgroup" style="display:block;margin-top:10px;">Comentario general<textarea class="finput boleta-comment-edit" rows="2" data-report="${reportIndex}">${h(report.comentarioParcial)}</textarea></label>
+      <details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;">Ver correo individual completo</summary><div id="boleta-email-content-${reportIndex}" style="margin-top:10px;padding:14px;border:1px solid var(--border);border-radius:8px;background:#fff;"></div></details>
+    </section>`;
+  }).join("");
+  boletaReportData.forEach((report, reportIndex) => updateBoletaEmailContentPreview(reportIndex));
+  preview.querySelectorAll(".boleta-grade-edit").forEach(input => input.addEventListener("input", () => {
+    const reportIndex = Number(input.dataset.report);
+    const item = boletaReportData[reportIndex].items[Number(input.dataset.criterion)];
+    item.Calificacion = input.value;
+    updateBoletaPreviewTotal(reportIndex);
+    updateBoletaEmailContentPreview(reportIndex);
+  }));
+  preview.querySelectorAll(".boleta-observation-edit").forEach(input => input.addEventListener("input", () => {
+    const reportIndex = Number(input.dataset.report);
+    const item = boletaReportData[reportIndex].items[Number(input.dataset.criterion)];
+    item.Observaciones = input.value;
+    updateBoletaEmailContentPreview(reportIndex);
+  }));
+  preview.querySelectorAll(".boleta-comment-edit").forEach(input => input.addEventListener("input", () => {
+    const reportIndex = Number(input.dataset.report);
+    boletaReportData[reportIndex].comentarioParcial = input.value;
+    updateBoletaEmailContentPreview(reportIndex);
+  }));
+  const sendButton = document.getElementById("btn-confirm-boleta-send");
+  sendButton.textContent = `Enviar ${boletaReportData.filter(report => !report.enviado).length} reporte(s)`;
+  sendButton.disabled = !boletaReportData.some(report => !report.enviado);
+}
+
+function getBoletaEmailGradeSummary(report) {
+  const criteria = report.parcial?.Criterios || [];
+  const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
+  const capturedWeight = criteria.reduce((sum, criterion) => {
+    const grade = report.items.find(item => item.Criterio === criterion.nombre)?.Calificacion;
+    return grade !== undefined && grade !== null && grade !== "" && Number.isFinite(Number(grade))
+      ? sum + (Number(criterion.porcentaje) || 0)
+      : sum;
+  }, 0);
+  const total = criteria.reduce((sum, criterion) => {
+    const grade = report.items.find(item => item.Criterio === criterion.nombre)?.Calificacion;
+    return grade !== undefined && grade !== null && grade !== "" && Number.isFinite(Number(grade))
+      ? sum + Number(grade) * (Number(criterion.porcentaje) || 0) / 100
+      : sum;
+  }, 0);
+  return `Promedio ${total.toFixed(2)} / 10 · ${capturedWeight}% capturado${assignedWeight === 100 && capturedWeight === 100 ? " · Parcial completo" : " · Parcial incompleto"}`;
+}
+
+function updateBoletaPreviewTotal(reportIndex) {
+  const label = document.getElementById(`boleta-email-total-${reportIndex}`);
+  if (label) label.textContent = getBoletaEmailGradeSummary(boletaReportData[reportIndex]);
+}
+
+function updateBoletaEmailContentPreview(reportIndex) {
+  const container = document.getElementById(`boleta-email-content-${reportIndex}`);
+  const report = boletaReportData[reportIndex];
+  if (!container || !report) return;
+  const criteria = report.parcial?.Criterios || [];
+  const rows = criteria.map(criterion => {
+    const item = report.items.find(entry => entry.Criterio === criterion.nombre);
+    const rawGrade = item?.Calificacion;
+    const grade = rawGrade === "" || rawGrade === null || rawGrade === undefined ? null : Number(rawGrade);
+    const contribution = grade !== null && Number.isFinite(grade) ? (grade * (Number(criterion.porcentaje) || 0) / 100).toFixed(2) : "—";
+    const evidence = renderEvidenceLinks(item?.Evidencias || []);
+    return `<tr><td>${h(criterion.nombre)}</td><td>${Number(criterion.porcentaje) || 0}%</td><td>${grade === null || !Number.isFinite(grade) ? "Pendiente" : `${grade.toFixed(1)} / 10`}</td><td>${contribution}</td><td>${h(item?.Observaciones || "—")}${evidence ? `<br>${evidence}` : ""}</td></tr>`;
+  }).join("");
+  const summary = getBoletaEmailGradeSummary(report);
+  const comments = [
+    report.comentarioParcial ? `<p><strong>Comentario general:</strong> ${h(report.comentarioParcial)}</p>` : "",
+    ...report.items.filter(item => item.Observaciones).map(item => `<p><strong>${h(item.Criterio)}:</strong> ${h(item.Observaciones)}</p>`)
+  ].filter(Boolean).join("");
+  container.innerHTML = `<p><strong>Para:</strong> ${h(nombreListaAlumno(report.alumno))} &lt;${h(report.alumno.Correo)}&gt;</p>
+    <h4>Reporte individual · ${h(report.clase)} · ${h(getPeriodLabel(report.parcial))}</h4>
+    <p>${h(report.alumno.Grado || "—")} · Grupo ${h(report.alumno.Grupo || "—")} · Matrícula ${h(report.alumno.Matricula || report.alumno.id)}</p>
+    <p><strong>${h(summary)}</strong></p>
+    <div class="table-wrap"><table class="tbl"><thead><tr><th>Criterio</th><th>Peso</th><th>Calificación</th><th>Aporta</th><th>Observación / evidencia</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <h4 style="margin-top:10px;">Comentarios y observaciones</h4>${comments || "<p>Sin comentarios u observaciones registrados.</p>"}
+    <p style="color:var(--muted);font-size:.78rem;margin-top:10px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}).</p>`;
 }
 
 // ════════════════════════════════════════
@@ -2061,10 +2272,12 @@ function openIndividualReport(reportKey) {
   const mode = document.getElementById("report-recipient-mode");
   mode.value = "student";
   document.getElementById("report-advisor-email").value = "";
+  document.getElementById("report-advisor-assignment").textContent = "";
   document.getElementById("report-parent-email").value = alumno.CorreoPadre || alumno.CorreoTutor || "";
   document.getElementById("report-send-parent").checked = false;
   document.getElementById("report-link-parent").checked = false;
   updateReportRecipientFields();
+  loadAssignedAdvisorForReport(activeIndividualReport);
 
   if (reportChartInstance) reportChartInstance.destroy();
   reportChartInstance = null;
@@ -2145,6 +2358,28 @@ function openIndividualReport(reportKey) {
   openModal("modal-reporte");
 }
 
+async function loadAssignedAdvisorForReport(report) {
+  const grade = String(report.alumno.Grado || "").match(/\d/)?.[0];
+  const group = String(report.alumno.Grupo || "").trim().toUpperCase();
+  if (!grade || !group) return;
+  const salon = `${grade}${group}`;
+  try {
+    const snapshot = await db.collection("Asesores").doc(salon).get();
+    if (activeIndividualReport !== report) return;
+    if (!snapshot.exists) {
+      document.getElementById("report-advisor-assignment").textContent = `No hay un asesor asignado al salón ${salon}.`;
+      return;
+    }
+    const advisor = snapshot.data();
+    document.getElementById("report-advisor-email").value = advisor.Correo || "";
+    document.getElementById("report-advisor-assignment").textContent = advisor.Nombre
+      ? `Asesor de ${salon}: ${advisor.Nombre}`
+      : `Asesor asignado a ${salon}`;
+  } catch (error) {
+    toast("No se pudo cargar el asesor del salón: " + error.message, "err");
+  }
+}
+
 function updateReportRecipientFields() {
   const mode = document.getElementById("report-recipient-mode").value;
   const includeParent = document.getElementById("report-send-parent").checked;
@@ -2161,6 +2396,105 @@ function encodeBase64Utf8(value) {
 
 function encodeBase64Url(value) {
   return btoa(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function buildHtmlEmailMessage(recipients, subject, html, cc = "") {
+  const parts = [
+    `To: ${recipients.join(", ")}`,
+    `Subject: =?UTF-8?B?${encodeBase64Utf8(subject)}?=`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    encodeBase64Utf8(html)
+  ];
+  if (cc) parts.splice(1, 0, `Cc: ${cc}`);
+  return parts.join("\r\n");
+}
+
+async function sendGmailMessage(accessToken, rawMessage) {
+  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ raw: encodeBase64Url(rawMessage) })
+  });
+  if (!response.ok) {
+    const details = await response.json();
+    throw new Error(details.error?.message || "Gmail no pudo enviar el mensaje.");
+  }
+}
+
+async function sendBoletaReports() {
+  const reports = boletaReportData.filter(report => !report.enviado);
+  if (!reports.length) {
+    toast("No hay reportes pendientes de envío.", "warn");
+    return;
+  }
+  for (const report of reports) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(report.alumno.Correo || "").trim())) {
+      toast(`Correo no válido para ${nombreListaAlumno(report.alumno)}. Corrige el correo antes de enviar.`, "warn");
+      return;
+    }
+    for (const item of report.items) {
+      const value = item.Calificacion;
+      if (value !== "" && value !== null && value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 10)) {
+        toast(`Revisa la calificación de ${item.Criterio} para ${nombreListaAlumno(report.alumno)}; debe estar entre 0 y 10.`, "warn");
+        return;
+      }
+    }
+  }
+  if (window.location.protocol === "file:") {
+    toast("Google no autoriza Gmail desde file://. Abre MaderoChecker mediante localhost o HTTPS.", "warn");
+    return;
+  }
+  if (!GOOGLE_OAUTH_CLIENT_ID) {
+    gmailActionAfterSetup = sendBoletaReports;
+    openGoogleOAuthSetup();
+    return;
+  }
+  if (!window.google?.accounts?.oauth2) {
+    toast("No se pudo cargar la autorización de Google. Verifica la conexión e inténtalo de nuevo.", "err");
+    return;
+  }
+  const button = document.getElementById("btn-confirm-boleta-send");
+  button.disabled = true;
+  button.textContent = "Autorizando en Google…";
+  document.querySelectorAll("#boleta-email-preview input, #boleta-email-preview textarea").forEach(input => { input.disabled = true; });
+  const tokenClient = window.google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_OAUTH_CLIENT_ID,
+    scope: "https://www.googleapis.com/auth/gmail.send",
+    callback: async tokenResponse => {
+      let sent = 0;
+      const previousReport = activeIndividualReport;
+      const previousChart = reportChartInstance;
+      try {
+        if (tokenResponse.error || !tokenResponse.access_token) throw new Error("Google no autorizó el envío.");
+        for (const report of reports) {
+          activeIndividualReport = report;
+          reportChartInstance = null;
+          await sendGmailMessage(tokenResponse.access_token, buildIndividualReportEmail([report.alumno.Correo.trim()]));
+          report.enviado = true;
+          sent++;
+          button.textContent = `Enviando… ${sent}/${reports.length}`;
+        }
+        toast(`Se enviaron ${sent} reportes individuales. Cada alumno recibió solo el suyo.`, "ok");
+        renderBoletaEmailPreview();
+      } catch (error) {
+        toast(`Se enviaron ${sent} de ${reports.length} reportes. ${error.message}`, "err");
+        renderBoletaEmailPreview();
+      } finally {
+        activeIndividualReport = previousReport;
+        reportChartInstance = previousChart;
+        button.disabled = !boletaReportData.some(report => !report.enviado);
+        if (!button.disabled) button.textContent = `Enviar ${boletaReportData.filter(report => !report.enviado).length} reporte(s)`;
+      }
+    },
+    error_callback: error => {
+      toast(`Google rechazó la autorización (${error.message || error.type}). Verifica que ${window.location.origin} esté registrado en Google Cloud.`, "err");
+      renderBoletaEmailPreview();
+    }
+  });
+  tokenClient.requestAccessToken({ prompt: "select_account" });
 }
 
 function buildIndividualReportEmail(recipients) {
@@ -2310,6 +2644,7 @@ async function sendIndividualReport() {
     return;
   }
   if (!GOOGLE_OAUTH_CLIENT_ID) {
+    gmailActionAfterSetup = sendIndividualReport;
     openGoogleOAuthSetup();
     return;
   }
@@ -2365,6 +2700,225 @@ async function sendIndividualReport() {
   tokenClient.requestAccessToken({ prompt: "select_account" });
 }
 
+let advisorReportStudents = [];
+
+document.getElementById("advisor-report-class").addEventListener("change", async () => {
+  const className = document.getElementById("advisor-report-class").value;
+  const groupSelect = document.getElementById("advisor-report-group");
+  const partialSelect = document.getElementById("advisor-report-partial");
+  const studentSelect = document.getElementById("advisor-report-student");
+  groupSelect.innerHTML = `<option value="">— Grupo —</option>`;
+  studentSelect.innerHTML = `<option value="">— Selecciona alumno —</option>`;
+  partialSelect.innerHTML = `<option value="">— Sin parcial —</option>`;
+  advisorReportStudents = [];
+  advisorReportAssignment = null;
+  advisorReportGradeRequest = "";
+  advisorReportGradeSummary = "Selecciona alumno y parcial para agregar el resumen de calificaciones.";
+  groupSelect.disabled = true;
+  studentSelect.disabled = true;
+  if (!className) {
+    updateAdvisorReportPreview();
+    return;
+  }
+  cacheParciales.filter(item => item.Clase === className)
+    .sort((a, b) => Number(a.Numero) - Number(b.Numero))
+    .forEach(item => partialSelect.add(new Option(getPeriodLabel(item), item.id)));
+  const gradeMatch = className.match(/\((\d)°\)/);
+  const groups = gradeMatch ? await loadGroupsForGrade(gradeMatch[1]) : [];
+  const configuredGroups = getClaseConfig(className)?.Grupos || [];
+  const reportGroups = configuredGroups.length ? groups.filter(group => configuredGroups.includes(group)) : groups;
+  reportGroups.forEach(group => groupSelect.add(new Option(group, group)));
+  groupSelect.disabled = reportGroups.length === 0;
+  updateAdvisorReportPreview();
+});
+
+document.getElementById("advisor-report-group").addEventListener("change", async () => {
+  const className = document.getElementById("advisor-report-class").value;
+  const group = document.getElementById("advisor-report-group").value;
+  const gradeMatch = className.match(/\((\d)°\)/);
+  const studentSelect = document.getElementById("advisor-report-student");
+  studentSelect.innerHTML = `<option value="">Cargando alumnos…</option>`;
+  studentSelect.disabled = true;
+  advisorReportAssignment = null;
+  advisorReportStudents = [];
+  advisorReportGradeRequest = "";
+  advisorReportGradeSummary = "Selecciona alumno y parcial para agregar el resumen de calificaciones.";
+  if (!gradeMatch || !group) {
+    studentSelect.innerHTML = `<option value="">— Selecciona alumno —</option>`;
+    updateAdvisorReportPreview();
+    return;
+  }
+  try {
+    const salon = `${gradeMatch[1]}${group}`;
+    const [studentSnap, advisorSnap] = await Promise.all([
+      db.collection("Usuarios").where("Rol", "==", "Alumno").where("Grado", "==", gradeMatch[1]).where("Grupo", "==", group).get(),
+      db.collection("Asesores").doc(salon).get()
+    ]);
+    advisorReportStudents = studentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => nombreListaAlumno(a).localeCompare(nombreListaAlumno(b), "es", { sensitivity: "base" }));
+    studentSelect.innerHTML = `<option value="">— Selecciona alumno —</option>`;
+    advisorReportStudents.forEach(student => studentSelect.add(new Option(nombreListaAlumno(student), student.id)));
+    studentSelect.disabled = advisorReportStudents.length === 0;
+    advisorReportAssignment = advisorSnap.exists ? advisorSnap.data() : null;
+    if (!advisorReportAssignment) toast(`El administrador aún no asigna asesor al salón ${salon}.`, "warn");
+  } catch (error) {
+    studentSelect.innerHTML = `<option value="">Error al cargar alumnos</option>`;
+    toast("No se pudo cargar el grupo o su asesor: " + error.message, "err");
+  }
+  updateAdvisorReportPreview();
+});
+
+["advisor-report-student", "advisor-report-partial"].forEach(id => {
+  document.getElementById(id).addEventListener("change", () => {
+    loadAdvisorReportGradeSummary();
+    updateAdvisorReportPreview();
+  });
+});
+
+["advisor-report-appointment", "advisor-report-reason"].forEach(id => {
+  document.getElementById(id).addEventListener("input", updateAdvisorReportPreview);
+  document.getElementById(id).addEventListener("change", updateAdvisorReportPreview);
+});
+
+function updateAdvisorReportPreview() {
+  const studentId = document.getElementById("advisor-report-student").value;
+  const student = advisorReportStudents.find(item => item.id === studentId);
+  const className = document.getElementById("advisor-report-class").value;
+  const partialId = document.getElementById("advisor-report-partial").value;
+  const partial = cacheParciales.find(item => item.id === partialId);
+  const appointment = document.getElementById("advisor-report-appointment").value === "yes";
+  const reason = document.getElementById("advisor-report-reason").value.trim();
+  const salon = `${student?.Grado || className.match(/\((\d)°\)/)?.[1] || ""}${student?.Grupo || document.getElementById("advisor-report-group").value}`;
+  const advisorName = advisorReportAssignment?.Nombre || "Asesor no asignado";
+  const advisorEmail = advisorReportAssignment?.Correo || "—";
+  document.getElementById("advisor-report-recipient").value = `${advisorName} <${advisorEmail}>`;
+  document.getElementById("advisor-report-subject").value = `${appointment ? "Solicitud de cita y reporte" : "Reporte de seguimiento"} · ${student ? nombreListaAlumno(student) : "Alumno"} · Salón ${salon || "—"}`;
+  document.getElementById("advisor-report-preview").value = [
+    "REPORTE DOCENTE",
+    `Alumno: ${student ? nombreListaAlumno(student) : "—"}`,
+    `Salón: ${salon || "—"}`,
+    `Materia: ${className || "—"}`,
+    `Periodo: ${partial ? getPeriodLabel(partial) : "No especificado"}`,
+    `Docente: ${docenteData.Nombre || "—"} (${docenteData.Correo || "—"})`,
+    `Solicitud de cita: ${appointment ? "Sí, se solicita acordar una cita." : "No."}`,
+    "",
+    "Resumen de calificaciones:",
+    advisorReportGradeSummary,
+    "",
+    "Motivo y detalles:",
+    reason || "Escribe el motivo detallado del reporte."
+  ].join("\n");
+}
+
+async function loadAdvisorReportGradeSummary() {
+  const studentId = document.getElementById("advisor-report-student").value;
+  const student = advisorReportStudents.find(item => item.id === studentId);
+  const className = document.getElementById("advisor-report-class").value;
+  const partialId = document.getElementById("advisor-report-partial").value;
+  if (!student || !partialId) {
+    advisorReportGradeRequest = "";
+    advisorReportGradeSummary = "No se seleccionó un parcial para incluir calificaciones.";
+    return;
+  }
+  const requestKey = `${studentId}|${className}|${partialId}`;
+  advisorReportGradeRequest = requestKey;
+  advisorReportGradeSummary = "Cargando calificaciones…";
+  updateAdvisorReportPreview();
+  try {
+    const matricula = String(student.Matricula || student.id);
+    const snapshot = await db.collection("Calificaciones").where("DocenteId", "==", DOCENTE_ID).get();
+    if (advisorReportGradeRequest !== requestKey) return;
+    const records = snapshot.docs.map(doc => doc.data()).filter(record =>
+      String(record.AlumnoMatricula) === matricula && record.Clase === className && record.ParcialId === partialId
+    );
+    const partial = cacheParciales.find(item => item.id === partialId);
+    const criteria = partial?.Criterios || [];
+    let capturedWeight = 0;
+    let weightedGrade = 0;
+    const rows = criteria.map(criterion => {
+      const record = records.find(item => item.Criterio === criterion.nombre);
+      const value = record?.Calificacion;
+      const grade = value === undefined || value === null || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
+      if (grade !== null) {
+        capturedWeight += Number(criterion.porcentaje) || 0;
+        weightedGrade += grade * (Number(criterion.porcentaje) || 0) / 100;
+      }
+      return `${criterion.nombre} (${Number(criterion.porcentaje) || 0}%): ${grade === null ? "Pendiente" : `${grade.toFixed(1)} / 10`}${record?.Observaciones ? ` · ${record.Observaciones}` : ""}`;
+    });
+    const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
+    const totalLine = `Promedio: ${weightedGrade.toFixed(2)} / 10 · ${capturedWeight}% capturado${assignedWeight === 100 && capturedWeight === 100 ? " · Parcial completo" : " · Parcial incompleto"}`;
+    advisorReportGradeSummary = rows.length ? `${totalLine}\n${rows.join("\n")}` : "El parcial no tiene criterios de evaluación configurados.";
+  } catch (error) {
+    advisorReportGradeSummary = "No se pudieron cargar las calificaciones.";
+    toast("No se pudieron cargar las calificaciones para el reporte: " + error.message, "err");
+  }
+  updateAdvisorReportPreview();
+}
+
+document.getElementById("advisor-report-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const studentId = document.getElementById("advisor-report-student").value;
+  const student = advisorReportStudents.find(item => item.id === studentId);
+  const className = document.getElementById("advisor-report-class").value;
+  const reason = document.getElementById("advisor-report-reason").value.trim();
+  if (!student || !className || !reason) {
+    toast("Selecciona materia, grupo, alumno y escribe el motivo del reporte.", "warn");
+    return;
+  }
+  const assignment = advisorReportAssignment;
+  if (!assignment?.Correo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(assignment.Correo)) {
+    toast(`No hay un correo válido asignado para el salón ${student.Grado || ""}${student.Grupo || ""}. Solicita al administrador que configure el asesor.`, "err");
+    return;
+  }
+  if (window.location.protocol === "file:") {
+    toast("Google no autoriza Gmail desde file://. Abre MaderoChecker mediante localhost o HTTPS.", "warn");
+    return;
+  }
+  if (!GOOGLE_OAUTH_CLIENT_ID) {
+    gmailActionAfterSetup = () => document.getElementById("advisor-report-form").requestSubmit();
+    openGoogleOAuthSetup();
+    return;
+  }
+  if (!window.google?.accounts?.oauth2) {
+    toast("No se pudo cargar la autorización de Google. Verifica la conexión e inténtalo de nuevo.", "err");
+    return;
+  }
+  const preview = document.getElementById("advisor-report-preview").value.trim();
+  const subject = document.getElementById("advisor-report-subject").value.trim();
+  if (!preview || !subject) {
+    toast("Completa el asunto y el contenido del correo.", "warn");
+    return;
+  }
+  const button = document.getElementById("btn-send-advisor-report");
+  button.disabled = true;
+  button.textContent = "Autorizando…";
+  const html = `<div style="font-family:Arial,sans-serif;color:#17202a;max-width:720px;margin:auto;white-space:pre-wrap;">${h(preview)}</div>`;
+  const cc = getTeacherCopy([assignment.Correo]);
+  const message = buildHtmlEmailMessage([assignment.Correo], subject, html, cc);
+  const tokenClient = window.google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_OAUTH_CLIENT_ID,
+    scope: "https://www.googleapis.com/auth/gmail.send",
+    callback: async tokenResponse => {
+      try {
+        if (tokenResponse.error || !tokenResponse.access_token) throw new Error("Google no autorizó el envío.");
+        await sendGmailMessage(tokenResponse.access_token, message);
+        toast(`Reporte enviado al asesor ${assignment.Nombre} (${assignment.Correo}).`, "ok");
+      } catch (error) {
+        toast("No se pudo enviar el reporte: " + error.message, "err");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Enviar al asesor";
+      }
+    },
+    error_callback: error => {
+      toast(`Google rechazó la autorización (${error.message || error.type}).`, "err");
+      button.disabled = false;
+      button.textContent = "Enviar al asesor";
+    }
+  });
+  tokenClient.requestAccessToken({ prompt: "select_account" });
+});
+
 function saveGoogleOAuthClientId() {
   if (window.location.protocol === "file:") {
     toast("Primero abre MaderoChecker mediante localhost o HTTPS; Google OAuth no admite file://.", "warn");
@@ -2379,7 +2933,9 @@ function saveGoogleOAuthClientId() {
   GOOGLE_OAUTH_CLIENT_ID = clientId;
   closeModal("modal-google-oauth");
   toast("Configuración de Gmail guardada. Elige la cuenta para enviar.", "ok");
-  sendIndividualReport();
+  const action = gmailActionAfterSetup || sendIndividualReport;
+  gmailActionAfterSetup = null;
+  action();
 }
 
 document.getElementById("report-recipient-mode").addEventListener("change", updateReportRecipientFields);
