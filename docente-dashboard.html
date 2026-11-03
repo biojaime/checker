@@ -372,6 +372,17 @@
     }
     .tab-pill:hover  { border-color:var(--indigo-mid); color:var(--indigo); }
     .tab-pill.active { background:var(--indigo); color:#fff; border-color:var(--indigo); }
+    .moment-config-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+    .moment-config-card { border:1px solid var(--border); border-radius:12px; padding:14px; background:#fff; }
+    .moment-config-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .moment-config-heading h3 { font-size:1rem; }
+    .moment-threshold { display:grid; gap:4px; font-size:.75rem; color:var(--muted); font-weight:700; }
+    .moment-threshold .fselect { padding:5px 8px; }
+    .moment-config-note { font-size:.8rem; color:var(--muted); margin:10px 0; }
+    .moment-partial-list { display:grid; gap:8px; }
+    .moment-partial-option { display:flex; align-items:center; gap:8px; padding:8px; border-radius:8px; background:#f8fafc; font-size:.84rem; cursor:pointer; }
+    .moment-partial-option input { accent-color:var(--indigo); }
+    .moment-results-table { margin-top:14px; }
   </style>
 </head>
 <body>
@@ -425,6 +436,14 @@
         <div class="nav-card-text">
           <span class="nav-card-title">Boletas</span>
           <span class="nav-card-sub">Consulta e impresión</span>
+        </div>
+      </button>
+
+      <button class="nav-card" data-panel="momentos">
+        <div class="nav-icon indigo">🔢</div>
+        <div class="nav-card-text">
+          <span class="nav-card-title">Administrar momentos</span>
+          <span class="nav-card-sub">Parciales y redondeos</span>
         </div>
       </button>
 
@@ -642,9 +661,28 @@
                 <select class="fselect" id="boleta-parcial" disabled><option value="">— Parcial —</option></select>
               </div>
               <button class="btn btn-primary btn-lg" id="btn-generar-boleta" onclick="generarBoleta()" disabled>Consultar promedios</button>
+              <button class="btn btn-indigo btn-lg" id="btn-generar-momentos" onclick="generarBoletaMomentos()" disabled>Consultar momentos</button>
             </div>
-            <p style="color:var(--muted); margin-top:12px; font-size:0.85rem;">Se mostrará el promedio ponderado de cada alumno del grupo para el parcial seleccionado. Parcial 1 corresponde al Momento 1, Parcial 2 al Momento 2 y Parcial 3 al Momento 3.</p>
+            <p style="color:var(--muted); margin-top:12px; font-size:0.85rem;">Consulta un parcial o genera el promedio de los tres momentos. Los parciales se redondean a una décima y los momentos a número entero conforme al umbral configurado.</p>
             <div id="boleta-results" style="margin-top:16px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-momentos">
+        <div class="card">
+          <div class="card-header"><h2>🔢 Administrar momentos</h2></div>
+          <div style="padding:1.4rem;">
+            <p style="color:var(--muted);font-size:.87rem;margin-bottom:14px;">Organiza los parciales de cada clase en tres momentos. Los parciales se redondean a una décima; un 5.95 permanece en 5.9. Cada momento promedia únicamente sus parciales seleccionados y se muestra sin decimales. Una calificación reprobatoria no sube a 6 por redondeo.</p>
+            <div class="fgroup" style="max-width:460px;margin-bottom:18px;">
+              <label for="momento-clase">Clase</label>
+              <select class="fselect" id="momento-clase"><option value="">— Selecciona clase —</option></select>
+            </div>
+            <div id="momentos-config"></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;">
+              <button class="btn btn-primary btn-lg" id="btn-save-momentos" type="button" disabled>Guardar configuración</button>
+              <span id="momentos-status" role="status" style="color:var(--muted);font-size:.84rem;"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -982,6 +1020,7 @@ let activeIndividualReport = null;
 let reportChartInstance = null;
 let advisorReportIncludeAllClasses = false;
 let teacherAvailability = {};
+let momentConfiguration = {};
 
 const ATTENTION_DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 const ATTENTION_SLOTS = [
@@ -1246,6 +1285,7 @@ const panelMeta = {
   parciales:       { title:"Parciales",              sub:"Gestión de criterios y evaluación",chip:"📋 Parciales" },
   calificaciones:  { title:"Captura de Calificaciones",sub:"Califica por clase y parcial", chip:"✏️ Calificaciones" },
   boletas:         { title:"Boletas",                sub:"Consulta e impresión",           chip:"🧾 Boletas" },
+  momentos:        { title:"Administrar momentos",   sub:"Organiza parciales y redondeos",   chip:"🔢 Momentos" },
   "reporte-cita":  { title:"Generar reporte o cita", sub:"Contacta al asesor asignado",    chip:"✉️ Reporte / cita" },
   alumnos:         { title:"Consulta de Alumnos",    sub:"Búsqueda por matrícula o nombre", chip:"🔍 Alumnos" }
 };
@@ -1279,6 +1319,7 @@ async function loadDocente() {
     const snap = await db.collection("Usuarios").doc(DOCENTE_ID).get();
     if (!snap.exists) { toast("No se encontró el perfil del docente.", "err"); return; }
     docenteData = snap.data();
+    momentConfiguration = docenteData.Momentos || {};
     const nombre = docenteData.Nombre || "Docente";
     const correo = docenteData.Correo || "—";
     const rol    = docenteData.Rol    || "Docente";
@@ -1321,7 +1362,7 @@ async function loadDocente() {
 // POPULATE ALL CLASS SELECTORS
 // ════════════════════════════════════════
 function populateClassSelects(clases) {
-  const ids = ["mp-clase","cal-clase","parcial-clase-filter","boleta-clase","advisor-report-class"];
+  const ids = ["mp-clase","cal-clase","parcial-clase-filter","boleta-clase","momento-clase","advisor-report-class"];
   ids.forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
@@ -1337,7 +1378,143 @@ function populateClassSelects(clases) {
       sel.appendChild(o);
     });
   });
+  renderMomentConfiguration();
 }
+
+function getMomentConfiguration(clase) {
+  const saved = momentConfiguration[clase];
+  const parciales = cacheParciales.filter(item => item.Clase === clase);
+  if (!saved) {
+    return {
+      umbrales: [0.5, 0.5, 0.5],
+      parciales: [1, 2, 3].map(moment => parciales.filter(item => Number(item.Numero) === moment).map(item => item.id))
+    };
+  }
+  return {
+    umbrales: [0, 1, 2].map(index => Number(saved.umbrales?.[index]) === 0.6 ? 0.6 : 0.5),
+    parciales: [0, 1, 2].map(index => Array.isArray(saved.parciales?.[index])
+      ? saved.parciales[index].filter(id => parciales.some(item => item.id === id))
+      : [])
+  };
+}
+
+function renderMomentConfiguration() {
+  const target = document.getElementById("momentos-config");
+  const button = document.getElementById("btn-save-momentos");
+  const status = document.getElementById("momentos-status");
+  if (!target || !button) return;
+  const clase = document.getElementById("momento-clase").value;
+  if (!clase) {
+    target.innerHTML = `<div class="empty-state"><p>Selecciona una clase para configurar sus tres momentos.</p></div>`;
+    button.disabled = true;
+    status.textContent = "";
+    return;
+  }
+  const config = getMomentConfiguration(clase);
+  const parciales = cacheParciales.filter(item => item.Clase === clase).sort((a, b) => Number(a.Numero) - Number(b.Numero));
+  if (!parciales.length) {
+    target.innerHTML = `<div class="empty-state"><p>Esta clase aún no tiene parciales configurados.</p><small>Crea los parciales desde el menú Parciales y vuelve a esta sección.</small></div>`;
+    button.disabled = true;
+    status.textContent = "";
+    return;
+  }
+  target.innerHTML = `<div class="moment-config-grid">${[0, 1, 2].map(index => `
+    <article class="moment-config-card">
+      <div class="moment-config-heading"><h3>Momento ${index + 1}</h3>
+        <label class="moment-threshold">Redondear desde
+          <select class="fselect" data-moment-threshold="${index}" aria-label="Umbral de redondeo del momento ${index + 1}">
+            <option value="0.5" ${config.umbrales[index] === 0.5 ? "selected" : ""}>0.5</option>
+            <option value="0.6" ${config.umbrales[index] === 0.6 ? "selected" : ""}>0.6</option>
+          </select>
+        </label>
+      </div>
+      <p class="moment-config-note">Selecciona los parciales que se promediarán en este momento.</p>
+      <div class="moment-partial-list">${parciales.map(parcial => `
+        <label class="moment-partial-option">
+          <input type="checkbox" data-moment-index="${index}" data-parcial-id="${h(parcial.id)}" ${config.parciales[index].includes(parcial.id) ? "checked" : ""}>
+          <span>${h(getPeriodLabel(parcial))}</span>
+        </label>`).join("")}</div>
+    </article>`).join("")}</div>`;
+  button.disabled = false;
+  status.textContent = "Los cambios se aplican después de guardarlos.";
+}
+
+async function saveMomentConfiguration() {
+  const clase = document.getElementById("momento-clase").value;
+  if (!clase) return;
+  const config = {
+    umbrales: [0, 1, 2].map(index => Number(document.querySelector(`[data-moment-threshold="${index}"]`)?.value) === 0.6 ? 0.6 : 0.5),
+    parciales: [0, 1, 2].map(index => [...document.querySelectorAll(`[data-moment-index="${index}"]:checked`)].map(input => input.dataset.parcialId))
+  };
+  const button = document.getElementById("btn-save-momentos");
+  button.disabled = true;
+  button.textContent = "Guardando…";
+  try {
+    await db.collection("Usuarios").doc(DOCENTE_ID).update({ Momentos: { ...momentConfiguration, [clase]: config } });
+    momentConfiguration[clase] = config;
+    docenteData.Momentos = momentConfiguration;
+    document.getElementById("momentos-status").textContent = "Configuración guardada.";
+    toast("Se guardó la configuración de los momentos.", "ok");
+  } catch (error) {
+    document.getElementById("momentos-status").textContent = "No se pudo guardar la configuración.";
+    toast("Error al guardar los momentos: " + error.message, "err");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Guardar configuración";
+  }
+}
+
+function roundPartialGrade(value) {
+  const rounded = Math.round((Number(value) + Number.EPSILON) * 10) / 10;
+  return Number(value) < 6 && rounded >= 6 ? 5.9 : rounded;
+}
+
+function roundMomentGrade(value, threshold) {
+  const whole = Math.floor(value);
+  const rounded = value - whole >= threshold ? whole + 1 : whole;
+  return value < 6 ? Math.min(rounded, 5) : rounded;
+}
+
+function calculatePartialGrade(studentId, clase, parcial, records) {
+  const criteria = parcial.Criterios || [];
+  const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
+  if (!criteria.length || assignedWeight !== 100) return null;
+  const studentRecords = records.filter(record =>
+    String(record.AlumnoMatricula) === String(studentId) && record.Clase === clase && record.ParcialId === parcial.id
+  );
+  let capturedWeight = 0;
+  let weightedGrade = 0;
+  criteria.forEach(criterion => {
+    const record = studentRecords.find(item => item.Criterio === criterion.nombre);
+    const grade = record?.Calificacion;
+    if (grade === undefined || grade === null || grade === "" || !Number.isFinite(Number(grade))) return;
+    const weight = Number(criterion.porcentaje) || 0;
+    capturedWeight += weight;
+    weightedGrade += Number(grade) * weight / 100;
+  });
+  return capturedWeight === assignedWeight ? roundPartialGrade(weightedGrade) : null;
+}
+
+function calculateMomentGrade(studentId, clase, momentIndex, records) {
+  const config = getMomentConfiguration(clase);
+  const selectedIds = config.parciales[momentIndex];
+  if (!selectedIds.length) return null;
+  const grades = selectedIds.map(id => {
+    const parcial = cacheParciales.find(item => item.id === id && item.Clase === clase);
+    return parcial ? calculatePartialGrade(studentId, clase, parcial, records) : null;
+  });
+  if (grades.some(grade => grade === null)) return null;
+  const average = grades.reduce((sum, grade) => sum + grade, 0) / grades.length;
+  return roundMomentGrade(average, config.umbrales[momentIndex]);
+}
+
+document.getElementById("momento-clase").addEventListener("change", renderMomentConfiguration);
+document.getElementById("btn-save-momentos").addEventListener("click", saveMomentConfiguration);
+document.getElementById("momentos-config").addEventListener("change", event => {
+  if (event.target.matches("[data-moment-threshold], [data-moment-index]")) {
+    document.getElementById("momentos-status").textContent = "Hay cambios sin guardar.";
+  }
+});
 
 // ════════════════════════════════════════
 // RENDER CLASS CARDS
@@ -1372,6 +1549,7 @@ async function loadParciales() {
     cacheParciales = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     document.getElementById("s-parciales").textContent = cacheParciales.length;
     renderParciales();
+    renderMomentConfiguration();
   } catch(e) { toast("Error cargando parciales: " + e.message, "err"); }
 }
 
@@ -2094,6 +2272,10 @@ function updateBoletaButton() {
   const ready = ["boleta-clase", "boleta-grupo", "boleta-parcial"]
     .every(id => document.getElementById(id).value) && boletaAlumnos.length > 0;
   document.getElementById("btn-generar-boleta").disabled = !ready;
+  document.getElementById("btn-generar-momentos").disabled =
+    !document.getElementById("boleta-clase").value
+    || !document.getElementById("boleta-grupo").value
+    || boletaAlumnos.length === 0;
 }
 
 async function generarBoleta() {
@@ -2147,8 +2329,9 @@ async function generarBoleta() {
         comentarioParcial: comment,
         enviado: false
       };
-      const colorClass = !complete ? "grade-pending" : weightedGrade >= 7 ? "grade-green" : weightedGrade >= 6 ? "grade-yellow" : "grade-red";
-      const gradeLabel = complete ? weightedGrade.toFixed(2) : `Pendiente · ${capturedWeight}% capturado`;
+      const displayedGrade = roundPartialGrade(weightedGrade);
+      const colorClass = !complete ? "grade-pending" : displayedGrade >= 7 ? "grade-green" : displayedGrade >= 6 ? "grade-yellow" : "grade-red";
+      const gradeLabel = complete ? displayedGrade.toFixed(1) : `Pendiente · ${capturedWeight}% capturado`;
       return `<tr><td>${index + 1}</td><td>${h(alumnoId)}</td><td>${h(nombreListaAlumno(alumno) || "—")}</td><td><strong class="${colorClass}">${gradeLabel}</strong></td><td>${h(comment || "—")}</td></tr>`;
     }));
     const gradeMatch = clase.match(/\((\d)°\)/);
@@ -2163,6 +2346,46 @@ async function generarBoleta() {
   } finally {
     button.disabled = false;
     button.textContent = "Consultar promedios";
+  }
+}
+
+async function generarBoletaMomentos() {
+  const clase = document.getElementById("boleta-clase").value;
+  const grupo = document.getElementById("boleta-grupo").value;
+  if (!clase || !grupo || !boletaAlumnos.length) return;
+  const config = getMomentConfiguration(clase);
+  if (!config.parciales.some(selected => selected.length)) {
+    toast("Configura al menos un parcial en Administrar momentos antes de consultar.", "warn");
+    return;
+  }
+  const button = document.getElementById("btn-generar-momentos");
+  button.disabled = true;
+  button.textContent = "Calculando…";
+  try {
+    const snapshot = await db.collection("Calificaciones").where("DocenteId", "==", DOCENTE_ID).get();
+    const records = snapshot.docs.map(doc => doc.data()).filter(record => record.Clase === clase);
+    const rows = boletaAlumnos.map((alumno, index) => {
+      const alumnoId = String(alumno.Matricula || alumno.id);
+      const momentGrades = [0, 1, 2].map(moment => calculateMomentGrade(alumnoId, clase, moment, records));
+      const finalGrade = momentGrades.every(grade => grade !== null)
+        ? roundMomentGrade(momentGrades.reduce((sum, grade) => sum + grade, 0) / momentGrades.length, 0.5)
+        : null;
+      const cell = grade => grade === null
+        ? `<span class="grade-pending">Pendiente</span>`
+        : `<strong class="${grade >= 6 ? grade >= 7 ? "grade-green" : "grade-yellow" : "grade-red"}">${grade}</strong>`;
+      return `<tr><td>${index + 1}</td><td>${h(alumnoId)}</td><td>${h(nombreListaAlumno(alumno) || "—")}</td>
+        <td>${cell(momentGrades[0])}</td><td>${cell(momentGrades[1])}</td><td>${cell(momentGrades[2])}</td><td>${cell(finalGrade)}</td></tr>`;
+    });
+    const thresholds = config.umbrales.map((value, index) => `Momento ${index + 1}: ${value.toFixed(1)}`).join(" · ");
+    const html = `<header class="boleta-heading"><h1>Promedios de los momentos</h1><p>${h(clase)} · Grupo ${h(grupo)} · ${thresholds}</p></header>
+      <div class="boleta-legend"><span class="grade-green">6 a 10 · Aprobado</span><span class="grade-red">0 a 5 · Reprobatoria (no sube a 6)</span><span class="grade-pending">Pendiente · falta completar algún parcial</span></div>
+      <div class="table-wrap moment-results-table"><table class="tbl boleta-summary-table"><thead><tr><th>#</th><th>Matrícula</th><th>Alumno</th><th>Momento 1</th><th>Momento 2</th><th>Momento 3</th><th>Promedio de momentos</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+    document.getElementById("boleta-results").innerHTML = `${html}<div class="boleta-action-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="btn btn-primary" onclick="imprimirBoletaGrupo()">Imprimir listado</button></div>`;
+  } catch (error) {
+    toast("No se pudieron calcular los momentos: " + error.message, "err");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Consultar momentos";
   }
 }
 
@@ -2251,7 +2474,7 @@ function getBoletaEmailGradeSummary(report) {
       ? sum + Number(grade) * (Number(criterion.porcentaje) || 0) / 100
       : sum;
   }, 0);
-  return `Promedio ${total.toFixed(2)} / 10 · ${capturedWeight}% capturado${assignedWeight === 100 && capturedWeight === 100 ? " · Parcial completo" : " · Parcial incompleto"}`;
+  return `Promedio ${roundPartialGrade(total).toFixed(1)} / 10 · ${capturedWeight}% capturado${assignedWeight === 100 && capturedWeight === 100 ? " · Parcial completo" : " · Parcial incompleto"}`;
 }
 
 function updateBoletaPreviewTotal(reportIndex) {
