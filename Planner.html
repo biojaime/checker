@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1326">
+  <title>Planeador Docente IMM</title>
+  <link rel="icon" href="assets/planner.ico">
+  <link rel="stylesheet" href="styles.css?v=3">
+  <script defer src="brand-assets.js?v=1"></script>
+  <script defer src="pda-data.js?v=3"></script>
+  <script defer src="app.js?v=11"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="Planeador IMM">
+        <span class="brand-mark">M</span>
+        <span><strong>IMM Planeaciones</strong><small>Sistema Bilingüe · SEP</small></span>
+      </a>
+
+      <section class="side-card session-card">
+        <div class="session-heading"><label for="userId">Docente / Sesión</label><span class="session-live"><i></i> Activa</span></div>
+        <input id="userId" class="session-input" type="text" autocomplete="off" aria-label="Usuario o clave de sesión">
+        <label class="check-line"><input id="autosaveToggle" type="checkbox" checked><span>Autoguardado en este dispositivo</span></label>
+        <p id="saveStatus" class="save-status" role="status">Preparando almacenamiento local…</p>
+      </section>
+
+      <button id="newPlanButton" class="button button-primary full-width" type="button">＋ Nueva Planeación</button>
+
+      <section class="side-card import-card">
+        <h2>Cargar Planeación (JSON)</h2>
+        <label id="dropZone" class="drop-zone" for="jsonFile">
+          <span class="drop-icon">⇧</span>
+          <strong>Arrastra o pulsa para elegir</strong>
+          <small>JSON · hasta 200 MB</small>
+          <input id="jsonFile" type="file" accept=".json,application/json" hidden>
+        </label>
+        <button id="importButton" class="button button-muted full-width" type="button">Subir Archivo JSON</button>
+      </section>
+
+      <section class="side-actions">
+        <button id="saveJsonButton" class="button button-muted full-width" type="button">▣ Guardar Planeación (JSON)</button>
+        <div class="button-row">
+          <button id="sidebarPdfButton" class="button button-blue" type="button">▤ PDF</button>
+          <button id="sidebarWordButton" class="button button-muted" type="button">▤ Word</button>
+        </div>
+      </section>
+
+      <section class="side-card assistant-card">
+        <h2>Asistente IA (HELP)</h2>
+        <p>Genera y copia el contexto de tu planeación para usarlo en tu IA favorita.</p>
+        <button class="button button-success full-width" type="button" data-generate-prompt>✨ Generar Prompt IA</button>
+        <div class="assistant-links">
+          <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer"><img src="assets/gemini.png" alt=""> Abrir Gemini ↗</a>
+          <a href="https://www.deepseek.com/" target="_blank" rel="noopener noreferrer"><img src="assets/deepseek.png" alt=""> Abrir DeepSeek ↗</a>
+        </div>
+      </section>
+      <p class="sidebar-footnote">Los datos se guardan en este navegador. Exporta el JSON para respaldarlos o moverlos a otro dispositivo.</p>
+    </aside>
+
+    <main class="workspace">
+      <header class="hero">
+        <div class="institution-row">
+          <img src="assets/logo-imm.png" alt="Instituto Mexicano Madero" class="institution-logo imm-logo">
+          <div class="institution-copy">
+            <p>Sistema bilingüe fundado en 1874</p>
+            <strong>Instituto Mexicano Madero</strong>
+          </div>
+          <div class="sep-copy"><span>SECRETARÍA DE EDUCACIÓN PÚBLICA</span><strong>Dirección de Educación Secundaria</strong></div>
+          <img src="assets/logo-sep.png" alt="Secretaría de Educación Pública" class="institution-logo sep-logo">
+        </div>
+        <div class="hero-title">
+          <span class="eyebrow"><i></i> NUEVA ESCUELA MEXICANA · FORMATO DOCENTE</span>
+          <h1>Planeaciones Docente</h1>
+          <p>Estructura curricular y secuencia didáctica contextualizada para tu comunidad estudiantil.</p>
+        </div>
+      </header>
+
+      <nav class="step-nav" aria-label="Secciones de la planeación">
+        <button class="step-button active" type="button" data-tab="docente"><span>1</span> Docente y Curso</button>
+        <button class="step-button" type="button" data-tab="detalles"><span>2</span> Detalles Generales</button>
+        <button class="step-button" type="button" data-tab="contenido"><span>3</span> Contenido Curricular</button>
+        <button class="step-button" type="button" data-tab="secuencia"><span>4</span> Secuencia &amp; Exportar</button>
+      </nav>
+
+      <div class="workspace-meta">
+        <span id="currentStepLabel">Paso 1 de 4 · Docente y Curso</span>
+        <span class="progress-track"><span id="progressBar"></span></span>
+        <span id="progressLabel">0% completado</span>
+      </div>
+
+      <section class="page-section active" id="page-docente" data-page="docente">
+        <div class="section-heading">
+          <div><span class="eyebrow">PASO 1 DE 4</span><h2>Docente y curso</h2><p>Identifica a la persona responsable y el grupo al que va dirigida la planeación.</p></div>
+          <span class="section-badge">Información general</span>
+        </div>
+        <div class="form-grid two-columns">
+          <article class="panel">
+            <div class="panel-heading"><span class="panel-icon">01</span><div><h3>Información docente</h3><p>Datos de quien imparte el curso</p></div></div>
+            <div class="field">
+              <label for="docenteTitulo">Título</label>
+              <select id="docenteTitulo" data-bind="docente.titulo">
+                <option>Dr.</option><option>Dra.</option><option>Mtro.</option><option>Mtra.</option><option>Prof.</option><option>Pasante.</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="docenteNombre">Nombre completo del perfil vinculado</label>
+              <input id="docenteNombre" type="text" data-bind="docente.nombre" placeholder="Escribe el nombre del docente">
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading"><span class="panel-icon blue">02</span><div><h3>Información del curso</h3><p>Configuración de nivel, materia y grupos</p></div></div>
+            <div class="field-row">
+              <div class="field"><label for="cursoGrado">Grado</label><select id="cursoGrado" data-bind="curso.grado"><option>1ro</option><option>2do</option><option>3ro</option></select></div>
+              <fieldset class="field groups-field"><legend>Grupos</legend><div class="check-options">
+                <label><input type="checkbox" data-group="curso.grupos" value="A"> A</label><label><input type="checkbox" data-group="curso.grupos" value="B"> B</label><label><input type="checkbox" data-group="curso.grupos" value="C"> C</label><label><input type="checkbox" data-group="curso.grupos" value="D"> D</label><label><input type="checkbox" data-group="curso.grupos" value="E"> E</label><label><input type="checkbox" data-group="curso.grupos" value="F"> F</label>
+              </div></fieldset>
+            </div>
+            <label class="bilingual-toggle"><input type="checkbox" data-bind="curso.bilingue"><span class="toggle-ui"></span><span><strong>Modalidad bilingüe</strong><small>Incluye la instrucción para generar el contenido completamente en inglés.</small></span></label>
+            <div class="field"><label for="cursoMateria">Materia impartida</label><select id="cursoMateria" data-bind="curso.materia"></select></div>
+            <div class="field"><label for="cursoCampo">Campo formativo</label><select id="cursoCampo" data-bind="curso.campo"></select></div>
+          </article>
+        </div>
+        <div class="page-actions"><span>Los cambios se guardan automáticamente cuando esta opción está activa.</span><button class="button button-primary" type="button" data-next="detalles">Continuar a Detalles Generales →</button></div>
+      </section>
+
+      <section class="page-section" id="page-detalles" data-page="detalles">
+        <div class="section-heading">
+          <div><span class="eyebrow">PASO 2 DE 4</span><h2>Detalles generales de la planeación</h2><p>Define temporalidad, metodología, ejes articuladores y materias vinculadas.</p></div>
+          <span class="section-badge">Marco SEP · Fase 6</span>
+        </div>
+        <div class="form-grid details-layout">
+          <div class="stack">
+            <article class="panel">
+              <div class="panel-heading"><span class="panel-icon">A</span><div><h3>Metodología de aprendizaje</h3><p>Enfoque pedagógico rector</p></div></div>
+              <div class="field"><label for="planMetodologia">Metodología</label><select id="planMetodologia" data-bind="planeacion.metodologia"></select></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading"><span class="panel-icon blue">B</span><div><h3>Temporalidad y calendario</h3><p>Selecciona el rango y los días de clase.</p></div></div>
+              <div class="field-row">
+                <div class="field"><label for="fechaInicio">Fecha inicio</label><input id="fechaInicio" type="date" data-bind="planeacion.fecha_inicio"></div>
+                <div class="field"><label for="fechaFin">Fecha fin</label><input id="fechaFin" type="date" data-bind="planeacion.fecha_fin"></div>
+              </div>
+              <fieldset class="field day-field"><legend>Días de clase</legend><div class="day-pills">
+                <label><input type="checkbox" data-group="planeacion.dias_planeados" value="Lunes"><span>Lunes</span></label>
+                <label><input type="checkbox" data-group="planeacion.dias_planeados" value="Martes"><span>Martes</span></label>
+                <label><input type="checkbox" data-group="planeacion.dias_planeados" value="Miércoles"><span>Miércoles</span></label>
+                <label><input type="checkbox" data-group="planeacion.dias_planeados" value="Jueves"><span>Jueves</span></label>
+                <label><input type="checkbox" data-group="planeacion.dias_planeados" value="Viernes"><span>Viernes</span></label>
+              </div></fieldset>
+              <p id="scheduleSummary" class="inline-note">Elige un rango y al menos un día para generar sesiones.</p>
+            </article>
+          </div>
+          <div class="stack">
+            <article class="panel">
+              <div class="panel-heading"><span class="panel-icon green">C</span><div><h3>Ejes articuladores</h3><p>Vinculación transversal del aprendizaje</p></div></div>
+              <div class="field"><label for="eje1">Eje 1</label><select id="eje1" data-bind="planeacion.eje1"></select></div>
+              <div class="field"><label for="eje2">Eje 2</label><select id="eje2" data-bind="planeacion.eje2"></select></div>
+              <div class="field"><label for="eje3">Eje 3</label><select id="eje3" data-bind="planeacion.eje3"></select></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading"><span class="panel-icon">D</span><div><h3>Materias vinculadas</h3><p>Conexiones interdisciplinarias</p></div></div>
+              <div class="field"><label for="disciplina1">Materia 1</label><select id="disciplina1" data-bind="planeacion.disciplina1"></select></div>
+              <div class="field"><label for="disciplina2">Materia 2</label><select id="disciplina2" data-bind="planeacion.disciplina2"></select></div>
+              <div class="field"><label for="disciplina3">Materia 3</label><select id="disciplina3" data-bind="planeacion.disciplina3"></select></div>
+            </article>
+          </div>
+        </div>
+        <div class="page-actions"><button class="button button-muted" type="button" data-prev="docente">← Docente y Curso</button><button class="button button-primary" type="button" data-next="contenido">Continuar a Contenido Curricular →</button></div>
+      </section>
+
+      <section class="page-section" id="page-contenido" data-page="contenido">
+        <div class="section-heading">
+          <div><span class="eyebrow">PASO 3 DE 4</span><h2>Contenido curricular</h2><p>Redacta el contexto, selecciona PDAs del Plan Sintético y agrega elementos de codiseño.</p></div>
+          <span class="section-badge">Plan Sintético · PDA</span>
+        </div>
+        <article class="panel">
+          <div class="panel-heading"><span class="panel-icon">01</span><div><h3>Problemática contextual</h3><p>Describe la situación que da sentido al proyecto o secuencia.</p></div></div>
+          <div class="rich-field" data-rich-field>
+            <div class="editor-toolbar" role="toolbar" aria-label="Formato de texto">
+              <button type="button" data-command="bold" title="Negritas"><b>B</b></button><button type="button" data-command="italic" title="Cursivas"><i>I</i></button><button type="button" data-command="underline" title="Subrayado"><u>U</u></button><span></span><button type="button" data-command="insertUnorderedList" title="Lista con viñetas">• Lista</button><button type="button" data-command="insertOrderedList" title="Lista numerada">1. Lista</button>
+            </div>
+            <div class="rich-editor" contenteditable="true" data-bind="planeacion.problematica" data-placeholder="Problemática contextual"></div>
+          </div>
+        </article>
+        <article class="panel">
+          <div class="panel-heading"><span class="panel-icon blue">02</span><div><h3>PDAs oficiales · Plan Sintético</h3><p>La lista se filtra automáticamente por materia y grado.</p></div></div>
+          <div class="field"><label for="pdaSearch">Buscar PDA oficial</label><input id="pdaSearch" type="search" placeholder="Escribe para filtrar los aprendizajes…"></div>
+          <div id="officialPdaList" class="pda-list" aria-live="polite"></div>
+          <p id="pdaCount" class="inline-note"></p>
+        </article>
+        <article class="panel">
+          <div class="panel-heading"><span class="panel-icon green">03</span><div><h3>PDAs personalizados · Codiseño</h3><p>Agrega los procesos de desarrollo de aprendizaje propios de tu contexto.</p></div></div>
+          <div id="customPdaList" class="custom-pda-list"></div>
+          <button id="addCustomPda" class="button button-outline" type="button">＋ Agregar PDA personalizado</button>
+        </article>
+        <div class="form-grid three-columns">
+          <article class="panel"><div class="panel-heading"><div><h3>Objetivos</h3><p>Aprendizajes esperados</p></div></div><div class="rich-field" data-rich-field><div class="editor-toolbar compact"><button type="button" data-command="bold"><b>B</b></button><button type="button" data-command="italic"><i>I</i></button><button type="button" data-command="underline"><u>U</u></button><button type="button" data-command="insertUnorderedList">• Lista</button></div><div class="rich-editor" contenteditable="true" data-bind="planeacion.objetivos" data-placeholder="Objetivos"></div></div></article>
+          <article class="panel"><div class="panel-heading"><div><h3>Perfiles de egreso</h3><p>Rasgos que se favorecen</p></div></div><div class="rich-field" data-rich-field><div class="editor-toolbar compact"><button type="button" data-command="bold"><b>B</b></button><button type="button" data-command="italic"><i>I</i></button><button type="button" data-command="underline"><u>U</u></button><button type="button" data-command="insertUnorderedList">• Lista</button></div><div class="rich-editor" contenteditable="true" data-bind="planeacion.perfiles" data-placeholder="Perfiles de egreso"></div></div></article>
+          <article class="panel"><div class="panel-heading"><div><h3>Producto final</h3><p>Evidencia o producto de aprendizaje</p></div></div><div class="rich-field" data-rich-field><div class="editor-toolbar compact"><button type="button" data-command="bold"><b>B</b></button><button type="button" data-command="italic"><i>I</i></button><button type="button" data-command="underline"><u>U</u></button><button type="button" data-command="insertUnorderedList">• Lista</button></div><div class="rich-editor" contenteditable="true" data-bind="planeacion.producto" data-placeholder="Producto final"></div></div></article>
+        </div>
+        <div class="page-actions"><button class="button button-muted" type="button" data-prev="detalles">← Detalles Generales</button><button class="button button-primary" type="button" data-next="secuencia">Continuar a Secuencia Didáctica →</button></div>
+      </section>
+
+      <section class="page-section" id="page-secuencia" data-page="secuencia">
+        <div class="section-heading">
+          <div><span class="eyebrow">PASO 4 DE 4</span><h2>Secuencia didáctica y exportación</h2><p>Completa las actividades y descarga los documentos de tu planeación.</p></div>
+          <span class="section-badge" id="methodBadge">Planeación diaria</span>
+        </div>
+        <div id="sequenceNotice" class="notice notice-info" hidden></div>
+        <div id="sequenceFields" class="stack"></div>
+        <div class="form-grid export-layout">
+          <article class="panel">
+            <div class="panel-heading"><span class="panel-icon green">IA</span><div><h3>Prompt para IA</h3><p>Usa el contexto curricular para crear una propuesta en tu asistente favorito.</p></div></div>
+            <div class="button-row prompt-actions"><button class="button button-primary" type="button" data-generate-prompt>✨ Generar Prompt IA</button><button id="copyPromptButton" class="button button-muted" type="button" disabled>Copiar prompt</button></div>
+            <textarea id="promptOutput" class="prompt-output" rows="12" readonly placeholder="El prompt generado aparecerá aquí."></textarea>
+            <div class="assistant-links"><a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer"><img src="assets/gemini.png" alt=""> Abrir Gemini ↗</a><a href="https://www.deepseek.com/" target="_blank" rel="noopener noreferrer"><img src="assets/deepseek.png" alt=""> Abrir DeepSeek ↗</a></div>
+          </article>
+          <article class="panel export-panel">
+            <div class="panel-heading"><span class="panel-icon">⇩</span><div><h3>Centro de exportación</h3><p>Descarga un respaldo o genera el documento para revisión.</p></div></div>
+            <div class="field"><label for="downloadFormat">Formato de descarga</label><select id="downloadFormat"><option value="PDF">PDF</option><option value="WORD">WORD (.docx)</option><option value="PDF + WORD">PDF + WORD</option></select></div>
+            <button id="generateDownloadsButton" class="button button-primary full-width" type="button">Generar y descargar</button>
+            <button id="exportJsonFromSequence" class="button button-muted full-width" type="button">▣ Respaldar Planeación (JSON)</button>
+            <p class="inline-note">PDF y Word se descargan como archivos; el documento Word es editable.</p>
+          </article>
+        </div>
+        <div class="page-actions"><button class="button button-muted" type="button" data-prev="contenido">← Contenido Curricular</button><button class="button button-outline" type="button" data-tab="docente">Volver al inicio ↑</button></div>
+      </section>
+
+      <footer class="workspace-footer">Planeador Docente IMM · Aplicación estática · Tus datos permanecen en el almacenamiento local de este navegador.</footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
