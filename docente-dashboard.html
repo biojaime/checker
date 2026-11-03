@@ -210,6 +210,16 @@
     #modal-reporte .table-wrap { min-width:0; overflow-x:hidden; }
     #modal-reporte table.tbl { table-layout:fixed; min-width:0; font-size:0.78rem; }
     #modal-reporte table.tbl th, #modal-reporte table.tbl td { padding:7px 5px; white-space:normal; overflow-wrap:anywhere; }
+    .availability-table-wrap { overflow-x:auto; }
+    .availability-table { border-collapse:collapse; min-width:900px; width:100%; font-size:.75rem; }
+    .availability-table th, .availability-table td { border:1px solid var(--border); padding:7px 5px; text-align:center; }
+    .availability-table thead th { background:#f8fafc; font-weight:700; }
+    .availability-table tbody th { background:#f8fafc; text-align:left; white-space:nowrap; }
+    .availability-cell { display:flex; min-height:28px; align-items:center; justify-content:center; cursor:pointer; }
+    .availability-cell input { width:17px; height:17px; accent-color:var(--indigo); cursor:pointer; }
+    .availability-callout { white-space:pre-line; margin-top:14px; padding:12px 14px; border:1px solid #c7d2fe; border-radius:10px; background:#eef2ff; color:#3730a3; font-size:.85rem; }
+    .availability-callout strong { display:block; margin-bottom:5px; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     @media (max-width:700px) { .report-grid { grid-template-columns:minmax(0,1fr); } }
     table.tbl th {
       padding:9px 14px; background:#f9fafb; color:var(--muted);
@@ -502,6 +512,26 @@
             <span style="color:var(--muted); font-size:0.88rem;">Cargando…</span>
           </div>
         </div>
+
+        <div class="card" style="margin-top:1.2rem;">
+          <div class="card-header">
+            <h2>🕒 Horarios de atención</h2>
+            <button class="btn btn-primary" id="btn-save-attention-hours" type="button">Guardar horarios</button>
+          </div>
+          <div style="padding:1.2rem;">
+            <p style="color:var(--muted);font-size:.85rem;margin-bottom:12px;">Lunes a viernes, de 7:00 a 15:00. Selecciona los módulos disponibles para atender a madres, padres o tutores; los recesos de 9:30–10:00 y 12:30–12:50 no son seleccionables. Los horarios elegidos se compartirán al solicitar una cita.</p>
+            <div id="teacher-availability-grid"></div>
+            <p id="attention-hours-status" role="status" style="margin-top:10px;font-size:.82rem;color:var(--muted);">Cargando horarios…</p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:1.2rem;">
+          <div class="card-header"><h2>📝 Planeación docente</h2></div>
+          <div style="padding:1.2rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <p style="color:var(--muted);font-size:.88rem;flex:1;min-width:220px;">Abre el Planeador con tu nombre y las materias que tienes asignadas.</p>
+            <a class="btn btn-primary btn-lg" id="home-planner-link" href="WEBVERSION/Planner.html">Planeador</a>
+          </div>
+        </div>
       </div>
 
       <!-- ══ PANEL: CLASES ══ -->
@@ -636,9 +666,9 @@
                 <label for="advisor-report-student">Alumno</label>
                 <select class="fselect" id="advisor-report-student" required disabled><option value="">— Selecciona alumno —</option></select>
               </div>
-              <div class="fgroup" style="min-width:160px;">
-                <label for="advisor-report-partial">Parcial (opcional)</label>
-                <select class="fselect" id="advisor-report-partial"><option value="">— Sin parcial —</option></select>
+              <div class="fgroup" id="advisor-report-partial-wrap" style="min-width:160px;">
+                <label for="advisor-report-partial">Filtrar por parcial (opcional)</label>
+                <select class="fselect" id="advisor-report-partial"><option value="">— Todos los parciales —</option></select>
               </div>
               <div class="fgroup" style="min-width:180px;">
                 <label for="advisor-report-appointment">¿Solicitar cita?</label>
@@ -647,6 +677,21 @@
                   <option value="yes">Sí, solicitar cita</option>
                 </select>
               </div>
+              <div class="fgroup" style="min-width:180px;">
+                <label for="advisor-report-type">Tipo de reporte</label>
+                <select class="fselect" id="advisor-report-type">
+                  <option value="general">General (incluye calificaciones)</option>
+                  <option value="disciplinario">Disciplinario (sin calificaciones)</option>
+                </select>
+              </div>
+            </div>
+            <div id="advisor-report-all-classes-wrap" style="display:none;margin-top:12px;">
+              <button class="btn btn-gray" id="advisor-report-all-classes" type="button">Añadir todas tus materias</button>
+              <span id="advisor-report-all-classes-status" style="margin-left:8px;color:var(--muted);font-size:.82rem;"></span>
+            </div>
+            <div id="advisor-report-availability" class="availability-callout" hidden>
+              <strong>Horarios disponibles para solicitar cita</strong>
+              <div id="advisor-report-availability-list"></div>
             </div>
             <div class="fgroup" style="margin-top:12px;">
               <label for="advisor-report-reason">Motivo detallado del reporte *</label>
@@ -658,7 +703,8 @@
             </div>
             <div class="fgroup" style="margin-top:12px;">
               <label for="advisor-report-subject">Asunto del correo</label>
-              <input class="finput" id="advisor-report-subject">
+              <input class="finput" id="advisor-report-subject" readonly>
+              <small style="display:block;margin-top:5px;color:var(--muted);">Por privacidad, el asunto usa las iniciales del alumno y su grado/grupo, no su nombre completo.</small>
             </div>
             <div class="fgroup" style="margin-top:12px;">
               <label for="advisor-report-preview">Vista previa del correo (puedes editar el contenido antes de enviar)</label>
@@ -923,7 +969,7 @@ let boletaAlumnos = [];
 let boletaReportData = [];
 let gmailActionAfterSetup = null;
 let advisorReportAssignment = null;
-let advisorReportGradeSummary = "No se seleccionó un parcial para incluir calificaciones.";
+let advisorReportGradeSummary = "Selecciona un alumno; sin filtro de parcial se incluirán todos los periodos disponibles.";
 let advisorReportGradeRequest = "";
 let gradeSaveTimer = null;
 let gradeSaveInProgress = false;
@@ -934,6 +980,113 @@ let calLoadedContext = null;
 let calPartialComments = {};
 let activeIndividualReport = null;
 let reportChartInstance = null;
+let advisorReportIncludeAllClasses = false;
+let teacherAvailability = {};
+
+const ATTENTION_DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+const ATTENTION_SLOTS = [
+  { start: "7:00", end: "7:50" },
+  { start: "7:50", end: "8:40" },
+  { start: "8:40", end: "9:30" },
+  { start: "10:00", end: "10:50" },
+  { start: "10:50", end: "11:40" },
+  { start: "11:40", end: "12:30" },
+  { start: "12:50", end: "13:35" },
+  { start: "13:35", end: "14:20" },
+  { start: "14:20", end: "14:50" }
+];
+
+function normalizeTeacherAvailability(value) {
+  const result = {};
+  ATTENTION_DAYS.forEach(day => {
+    const slots = Array.isArray(value?.[day]) ? value[day] : [];
+    result[day] = [...new Set(slots.map(Number).filter(slot => Number.isInteger(slot) && slot >= 0 && slot < ATTENTION_SLOTS.length))];
+  });
+  return result;
+}
+
+function renderTeacherAvailability() {
+  const target = document.getElementById("teacher-availability-grid");
+  if (!target) return;
+  const headers = ATTENTION_SLOTS.map(slot => `<th scope="col">${slot.start}–${slot.end}</th>`).join("");
+  const rows = ATTENTION_DAYS.map(day => `<tr><th scope="row">${day}</th>${ATTENTION_SLOTS.map((slot, index) => `
+    <td><label class="availability-cell" aria-label="${day}, ${slot.start} a ${slot.end}">
+      <input type="checkbox" data-attention-day="${day}" data-attention-slot="${index}" ${teacherAvailability[day]?.includes(index) ? "checked" : ""}>
+      <span class="sr-only">${day}, ${slot.start} a ${slot.end}</span>
+    </label></td>`).join("")}</tr>`).join("");
+  target.innerHTML = `<div class="availability-table-wrap"><table class="availability-table"><thead><tr><th scope="col">Día</th>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  renderReportAvailability();
+}
+
+function getAvailableAttentionTimes() {
+  return ATTENTION_DAYS.map(day => {
+    const times = (teacherAvailability[day] || []).map(index => ATTENTION_SLOTS[index]).filter(Boolean)
+      .map(slot => `${slot.start}–${slot.end}`);
+    return times.length ? `${day}: ${times.join(", ")}` : "";
+  }).filter(Boolean);
+}
+
+function renderReportAvailability() {
+  const wrap = document.getElementById("advisor-report-availability");
+  if (!wrap) return;
+  const visible = document.getElementById("advisor-report-appointment").value === "yes";
+  wrap.hidden = !visible;
+  const times = getAvailableAttentionTimes();
+  document.getElementById("advisor-report-availability-list").textContent = times.length
+    ? times.join("\n")
+    : "El docente aún no ha configurado horarios de atención.";
+}
+
+document.addEventListener("change", event => {
+  const input = event.target.closest("[data-attention-day][data-attention-slot]");
+  if (!input) return;
+  const day = input.dataset.attentionDay;
+  const slot = Number(input.dataset.attentionSlot);
+  const selected = new Set(teacherAvailability[day] || []);
+  if (input.checked) selected.add(slot);
+  else selected.delete(slot);
+  teacherAvailability[day] = [...selected].sort((a, b) => a - b);
+  document.getElementById("attention-hours-status").textContent = "Hay cambios sin guardar.";
+  renderReportAvailability();
+});
+
+document.getElementById("btn-save-attention-hours").addEventListener("click", saveTeacherAvailability);
+document.getElementById("advisor-report-appointment").addEventListener("change", () => {
+  renderReportAvailability();
+  updateAdvisorReportPreview();
+});
+
+function buildPlannerUrl() {
+  const link = document.getElementById("home-planner-link");
+  if (!link) return;
+  const url = new URL("WEBVERSION/Planner.html", window.location.href);
+  url.searchParams.set("user", DOCENTE_ID);
+  url.searchParams.set("nombre", docenteData.Nombre || "");
+  url.searchParams.set("titulo", docenteData.Titulo || docenteData["Título"] || docenteData.Tratamiento || "Mtro.");
+  const subjects = [...new Set((docenteData.Clases || []).map(clase =>
+    String(clase).replace(/\s*\(\d+°\)\s*$/, "").trim()
+  ).filter(Boolean))];
+  url.searchParams.set("materias", JSON.stringify(subjects));
+  link.href = url.href;
+}
+
+async function saveTeacherAvailability() {
+  const button = document.getElementById("btn-save-attention-hours");
+  button.disabled = true;
+  button.textContent = "Guardando…";
+  try {
+    await db.collection("Usuarios").doc(DOCENTE_ID).update({ HorariosAtencion: teacherAvailability });
+    docenteData.HorariosAtencion = teacherAvailability;
+    document.getElementById("attention-hours-status").textContent = "Horarios guardados.";
+    toast("Se guardaron los horarios de atención.", "ok");
+  } catch (error) {
+    document.getElementById("attention-hours-status").textContent = "No se pudieron guardar los horarios.";
+    toast("Error al guardar los horarios de atención: " + error.message, "err");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Guardar horarios";
+  }
+}
 
 function getClaseConfig(clase) {
   return docenteData.ClasesConfig?.[clase] || null;
@@ -1011,6 +1164,36 @@ function requestGoogleAccessToken(scope) {
     });
     tokenClient.requestAccessToken({ prompt: "select_account" });
   });
+}
+
+function updateAdvisorReportTypeUI() {
+  const isGeneral = document.getElementById("advisor-report-type").value === "general";
+  document.getElementById("advisor-report-partial-wrap").style.display = isGeneral ? "" : "none";
+  if (!isGeneral) {
+    advisorReportIncludeAllClasses = false;
+    document.getElementById("advisor-report-partial").value = "";
+  }
+  updateAdvisorReportAllClassesControl();
+}
+
+function updateAdvisorReportAllClassesControl() {
+  const wrap = document.getElementById("advisor-report-all-classes-wrap");
+  const canAddAll = document.getElementById("advisor-report-type").value === "general"
+    && (docenteData.Clases || []).length > 2;
+  wrap.style.display = canAddAll ? "" : "none";
+  document.getElementById("advisor-report-all-classes").textContent = advisorReportIncludeAllClasses
+    ? "Quitar materias adicionales"
+    : "Añadir todas tus materias";
+  document.getElementById("advisor-report-all-classes-status").textContent = advisorReportIncludeAllClasses
+    ? "Se incluirán las calificaciones de las materias impartidas al grupo."
+    : "";
+}
+
+function studentInitials(student) {
+  const fullName = [student.Nombres || student.Nombre, student.ApellidoPaterno, student.ApellidoMaterno]
+    .filter(Boolean).join(" ") || nombreListaAlumno(student);
+  return fullName.trim().split(/\s+/).filter(Boolean)
+    .map(part => part[0]).join("").toLocaleUpperCase("es");
 }
 
 async function uploadEvidenceToDrive(file, name, accessToken) {
@@ -1100,6 +1283,7 @@ async function loadDocente() {
     const correo = docenteData.Correo || "—";
     const rol    = docenteData.Rol    || "Docente";
     const clases = docenteData.Clases || [];
+    teacherAvailability = normalizeTeacherAvailability(docenteData.HorariosAtencion);
     const inicial = nombre.charAt(0).toUpperCase();
 
     // Sidebar
@@ -1113,6 +1297,9 @@ async function loadDocente() {
     document.getElementById("home-avatar").textContent       = inicial;
     document.getElementById("home-clases-chip").textContent  = `${clases.length} clase${clases.length !== 1 ? "s" : ""}`;
     document.getElementById("s-clases").textContent          = clases.length;
+    buildPlannerUrl();
+    renderTeacherAvailability();
+    document.getElementById("attention-hours-status").textContent = "Selecciona tus espacios disponibles y guarda los cambios.";
 
     // Home classes list
     const hcl = document.getElementById("home-clases-list");
@@ -1121,6 +1308,7 @@ async function loadDocente() {
       : `<span style="color:var(--muted); font-size:0.88rem;">Sin clases asignadas aún</span>`;
 
     populateClassSelects(clases);
+    updateAdvisorReportTypeUI();
     renderClassCards(clases);
     await loadParciales();
   } catch(e) {
@@ -2709,11 +2897,12 @@ document.getElementById("advisor-report-class").addEventListener("change", async
   const studentSelect = document.getElementById("advisor-report-student");
   groupSelect.innerHTML = `<option value="">— Grupo —</option>`;
   studentSelect.innerHTML = `<option value="">— Selecciona alumno —</option>`;
-  partialSelect.innerHTML = `<option value="">— Sin parcial —</option>`;
+  partialSelect.innerHTML = `<option value="">— Todos los parciales —</option>`;
   advisorReportStudents = [];
   advisorReportAssignment = null;
   advisorReportGradeRequest = "";
-  advisorReportGradeSummary = "Selecciona alumno y parcial para agregar el resumen de calificaciones.";
+  advisorReportIncludeAllClasses = false;
+  advisorReportGradeSummary = "Selecciona un alumno; sin filtro de parcial se incluirán todos los periodos disponibles.";
   groupSelect.disabled = true;
   studentSelect.disabled = true;
   if (!className) {
@@ -2729,6 +2918,7 @@ document.getElementById("advisor-report-class").addEventListener("change", async
   const reportGroups = configuredGroups.length ? groups.filter(group => configuredGroups.includes(group)) : groups;
   reportGroups.forEach(group => groupSelect.add(new Option(group, group)));
   groupSelect.disabled = reportGroups.length === 0;
+  updateAdvisorReportAllClassesControl();
   updateAdvisorReportPreview();
 });
 
@@ -2742,7 +2932,7 @@ document.getElementById("advisor-report-group").addEventListener("change", async
   advisorReportAssignment = null;
   advisorReportStudents = [];
   advisorReportGradeRequest = "";
-  advisorReportGradeSummary = "Selecciona alumno y parcial para agregar el resumen de calificaciones.";
+  advisorReportGradeSummary = "Selecciona un alumno; sin filtro de parcial se incluirán todos los periodos disponibles.";
   if (!gradeMatch || !group) {
     studentSelect.innerHTML = `<option value="">— Selecciona alumno —</option>`;
     updateAdvisorReportPreview();
@@ -2775,7 +2965,20 @@ document.getElementById("advisor-report-group").addEventListener("change", async
   });
 });
 
-["advisor-report-appointment", "advisor-report-reason"].forEach(id => {
+document.getElementById("advisor-report-type").addEventListener("change", () => {
+  updateAdvisorReportTypeUI();
+  loadAdvisorReportGradeSummary();
+  updateAdvisorReportPreview();
+});
+
+document.getElementById("advisor-report-all-classes").addEventListener("click", () => {
+  advisorReportIncludeAllClasses = !advisorReportIncludeAllClasses;
+  updateAdvisorReportAllClassesControl();
+  loadAdvisorReportGradeSummary();
+  updateAdvisorReportPreview();
+});
+
+["advisor-report-reason"].forEach(id => {
   document.getElementById(id).addEventListener("input", updateAdvisorReportPreview);
   document.getElementById(id).addEventListener("change", updateAdvisorReportPreview);
 });
@@ -2787,27 +2990,31 @@ function updateAdvisorReportPreview() {
   const partialId = document.getElementById("advisor-report-partial").value;
   const partial = cacheParciales.find(item => item.id === partialId);
   const appointment = document.getElementById("advisor-report-appointment").value === "yes";
+  const reportType = document.getElementById("advisor-report-type").value;
   const reason = document.getElementById("advisor-report-reason").value.trim();
   const salon = `${student?.Grado || className.match(/\((\d)°\)/)?.[1] || ""}${student?.Grupo || document.getElementById("advisor-report-group").value}`;
   const advisorName = advisorReportAssignment?.Nombre || "Asesor no asignado";
   const advisorEmail = advisorReportAssignment?.Correo || "—";
   document.getElementById("advisor-report-recipient").value = `${advisorName} <${advisorEmail}>`;
-  document.getElementById("advisor-report-subject").value = `${appointment ? "Solicitud de cita y reporte" : "Reporte de seguimiento"} · ${student ? nombreListaAlumno(student) : "Alumno"} · Salón ${salon || "—"}`;
-  document.getElementById("advisor-report-preview").value = [
-    "REPORTE DOCENTE",
+  const initials = student ? studentInitials(student) : "AL";
+  const reportLabel = reportType === "disciplinario" ? "Reporte disciplinario" : "Reporte general";
+  document.getElementById("advisor-report-subject").value = `${appointment ? "Solicitud de cita · " : ""}${reportLabel} · ${initials} · Salón ${salon || "—"}`;
+  const lines = [
+    reportLabel.toLocaleUpperCase("es"),
     `Alumno: ${student ? nombreListaAlumno(student) : "—"}`,
     `Salón: ${salon || "—"}`,
     `Materia: ${className || "—"}`,
-    `Periodo: ${partial ? getPeriodLabel(partial) : "No especificado"}`,
+    `Periodo: ${partial ? getPeriodLabel(partial) : reportType === "general" ? "Todos los periodos disponibles" : "No especificado"}`,
     `Docente: ${docenteData.Nombre || "—"} (${docenteData.Correo || "—"})`,
     `Solicitud de cita: ${appointment ? "Sí, se solicita acordar una cita." : "No."}`,
-    "",
-    "Resumen de calificaciones:",
-    advisorReportGradeSummary,
-    "",
-    "Motivo y detalles:",
-    reason || "Escribe el motivo detallado del reporte."
-  ].join("\n");
+  ];
+  if (appointment) {
+    const times = getAvailableAttentionTimes();
+    lines.push("", "Horarios de atención disponibles:", ...(times.length ? times : ["El docente aún no ha configurado horarios de atención."]));
+  }
+  if (reportType === "general") lines.push("", "Resumen de calificaciones:", advisorReportGradeSummary);
+  lines.push("", "Motivo y detalles:", reason || "Escribe el motivo detallado del reporte.");
+  document.getElementById("advisor-report-preview").value = lines.join("\n");
 }
 
 async function loadAdvisorReportGradeSummary() {
@@ -2815,12 +3022,19 @@ async function loadAdvisorReportGradeSummary() {
   const student = advisorReportStudents.find(item => item.id === studentId);
   const className = document.getElementById("advisor-report-class").value;
   const partialId = document.getElementById("advisor-report-partial").value;
-  if (!student || !partialId) {
+  if (document.getElementById("advisor-report-type").value !== "general") {
     advisorReportGradeRequest = "";
-    advisorReportGradeSummary = "No se seleccionó un parcial para incluir calificaciones.";
+    advisorReportGradeSummary = "";
+    updateAdvisorReportPreview();
     return;
   }
-  const requestKey = `${studentId}|${className}|${partialId}`;
+  if (!student || !className) {
+    advisorReportGradeRequest = "";
+    advisorReportGradeSummary = "Selecciona un alumno para consultar sus calificaciones.";
+    updateAdvisorReportPreview();
+    return;
+  }
+  const requestKey = `${studentId}|${className}|${partialId}|${advisorReportIncludeAllClasses}`;
   advisorReportGradeRequest = requestKey;
   advisorReportGradeSummary = "Cargando calificaciones…";
   updateAdvisorReportPreview();
@@ -2828,26 +3042,46 @@ async function loadAdvisorReportGradeSummary() {
     const matricula = String(student.Matricula || student.id);
     const snapshot = await db.collection("Calificaciones").where("DocenteId", "==", DOCENTE_ID).get();
     if (advisorReportGradeRequest !== requestKey) return;
-    const records = snapshot.docs.map(doc => doc.data()).filter(record =>
-      String(record.AlumnoMatricula) === matricula && record.Clase === className && record.ParcialId === partialId
-    );
-    const partial = cacheParciales.find(item => item.id === partialId);
-    const criteria = partial?.Criterios || [];
-    let capturedWeight = 0;
-    let weightedGrade = 0;
-    const rows = criteria.map(criterion => {
-      const record = records.find(item => item.Criterio === criterion.nombre);
-      const value = record?.Calificacion;
-      const grade = value === undefined || value === null || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
-      if (grade !== null) {
-        capturedWeight += Number(criterion.porcentaje) || 0;
-        weightedGrade += grade * (Number(criterion.porcentaje) || 0) / 100;
-      }
-      return `${criterion.nombre} (${Number(criterion.porcentaje) || 0}%): ${grade === null ? "Pendiente" : `${grade.toFixed(1)} / 10`}${record?.Observaciones ? ` · ${record.Observaciones}` : ""}`;
+    const records = snapshot.docs.map(doc => doc.data()).filter(record => String(record.AlumnoMatricula) === matricula);
+    const selectedPartial = cacheParciales.find(item => item.id === partialId);
+    const selectedNumber = selectedPartial ? Number(selectedPartial.Numero) : null;
+    const grade = String(student.Grado || "").match(/\d/)?.[0];
+    const group = String(student.Grupo || "").trim().toUpperCase();
+    const classes = advisorReportIncludeAllClasses
+      ? [...new Set(docenteData.Clases || [])].filter(name => {
+        const classGrade = String(name).match(/\((\d)°\)/)?.[1];
+        const configuredGroups = getClaseConfig(name)?.Grupos || [];
+        return (!grade || !classGrade || classGrade === grade) && (!configuredGroups.length || configuredGroups.includes(group));
+      })
+      : [className];
+    const summaries = [];
+    classes.forEach(name => {
+      const partials = cacheParciales.filter(item =>
+        item.Clase === name && (selectedNumber === null || Number(item.Numero) === selectedNumber)
+      ).sort((a, b) => Number(a.Numero) - Number(b.Numero));
+      partials.forEach(partial => {
+        const partialRecords = records.filter(record => record.Clase === name && record.ParcialId === partial.id);
+        const criteria = partial.Criterios || [];
+        let capturedWeight = 0;
+        let weightedGrade = 0;
+        const rows = criteria.map(criterion => {
+          const record = partialRecords.find(item => item.Criterio === criterion.nombre);
+          const value = record?.Calificacion;
+          const score = value === undefined || value === null || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
+          if (score !== null) {
+            capturedWeight += Number(criterion.porcentaje) || 0;
+            weightedGrade += score * (Number(criterion.porcentaje) || 0) / 100;
+          }
+          return `  ${criterion.nombre} (${Number(criterion.porcentaje) || 0}%): ${score === null ? "Pendiente" : `${score.toFixed(1)} / 10`}${record?.Observaciones ? ` · ${record.Observaciones}` : ""}`;
+        });
+        const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
+        const totalLine = `Promedio: ${weightedGrade.toFixed(2)} / 10 · ${capturedWeight}% capturado${assignedWeight === 100 && capturedWeight === 100 ? " · Parcial completo" : " · Parcial incompleto"}`;
+        summaries.push(`${name} · ${getPeriodLabel(partial)}\n${totalLine}${rows.length ? `\n${rows.join("\n")}` : "\nSin criterios de evaluación configurados."}`);
+      });
     });
-    const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
-    const totalLine = `Promedio: ${weightedGrade.toFixed(2)} / 10 · ${capturedWeight}% capturado${assignedWeight === 100 && capturedWeight === 100 ? " · Parcial completo" : " · Parcial incompleto"}`;
-    advisorReportGradeSummary = rows.length ? `${totalLine}\n${rows.join("\n")}` : "El parcial no tiene criterios de evaluación configurados.";
+    advisorReportGradeSummary = summaries.length
+      ? summaries.join("\n\n")
+      : "No hay parciales configurados para las materias seleccionadas.";
   } catch (error) {
     advisorReportGradeSummary = "No se pudieron cargar las calificaciones.";
     toast("No se pudieron cargar las calificaciones para el reporte: " + error.message, "err");
