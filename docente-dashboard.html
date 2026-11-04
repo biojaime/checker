@@ -656,14 +656,21 @@
                 <label for="boleta-grupo">Grupo</label>
                 <select class="fselect" id="boleta-grupo" disabled><option value="">— Grupo —</option></select>
               </div>
+              <div class="fgroup" style="min-width:180px;">
+                <label for="boleta-tipo">Consultar por</label>
+                <select class="fselect" id="boleta-tipo">
+                  <option value="parcial">Parcial</option>
+                  <option value="momento">Momento</option>
+                  <option value="promedio-momentos">Promedio de momentos</option>
+                </select>
+              </div>
               <div class="fgroup" style="min-width:140px;">
-                <label for="boleta-parcial">Parcial / momento</label>
+                <label for="boleta-parcial" id="boleta-period-label">Parcial</label>
                 <select class="fselect" id="boleta-parcial" disabled><option value="">— Parcial —</option></select>
               </div>
-              <button class="btn btn-primary btn-lg" id="btn-generar-boleta" onclick="generarBoleta()" disabled>Consultar promedios</button>
-              <button class="btn btn-indigo btn-lg" id="btn-generar-momentos" onclick="generarBoletaMomentos()" disabled>Consultar momentos</button>
+              <button class="btn btn-primary btn-lg" id="btn-generar-boleta" onclick="generarBoletaSeleccion()" disabled>Consultar promedios</button>
             </div>
-            <p style="color:var(--muted); margin-top:12px; font-size:0.85rem;">Consulta un parcial o genera el promedio de los tres momentos. Los parciales se redondean a una décima y los momentos a número entero conforme al umbral configurado.</p>
+            <p style="color:var(--muted); margin-top:12px; font-size:0.85rem;">Elige consultar un parcial, un momento individual o el promedio de los tres momentos. Los parciales se redondean a una décima y los momentos a número entero conforme al umbral configurado.</p>
             <div id="boleta-results" style="margin-top:16px;"></div>
           </div>
         </div>
@@ -810,11 +817,7 @@
       </div>
       <div class="fgroup">
         <label>Número de parcial</label>
-        <select class="fselect" id="mp-num">
-          <option value="1">Parcial 1</option>
-          <option value="2">Parcial 2</option>
-          <option value="3">Parcial 3</option>
-        </select>
+        <input class="finput" id="mp-num" type="number" min="1" step="1" value="1" required>
       </div>
       <div class="fgroup">
         <label>Criterios de evaluación <small style="color:var(--muted);">(deben sumar exactamente 100%)</small></label>
@@ -850,7 +853,7 @@
       <input type="hidden" id="copy-partial-source">
       <div class="fgroup">
         <label for="copy-partial-target">Copiar a</label>
-        <select class="fselect" id="copy-partial-target"></select>
+        <input class="finput" id="copy-partial-target" type="number" min="1" step="1" required>
       </div>
       <p style="font-size:.84rem;color:var(--muted);">Solo se copiarán los nombres de los rubros y sus porcentajes. No se copian calificaciones, observaciones ni otros datos.</p>
       <div id="copy-partial-preview" style="padding:10px;background:#f8fafc;border-radius:8px;font-size:.84rem;"></div>
@@ -1341,7 +1344,7 @@ async function loadDocente() {
     const snap = await db.collection("Usuarios").doc(DOCENTE_ID).get();
     if (!snap.exists) { toast("No se encontró el perfil del docente.", "err"); return; }
     docenteData = snap.data();
-    momentConfiguration = docenteData.Momentos || {};
+    momentConfiguration = normalizeMomentConfigurations(docenteData.Momentos);
     const nombre = docenteData.Nombre || "Docente";
     const correo = docenteData.Correo || "—";
     const rol    = docenteData.Rol    || "Docente";
@@ -1404,20 +1407,56 @@ function populateClassSelects(clases) {
 }
 
 function getMomentConfiguration(clase) {
-  const saved = momentConfiguration[clase];
-  const parciales = cacheParciales.filter(item => item.Clase === clase);
-  if (!saved) {
-    return {
-      umbrales: [0.5, 0.5, 0.5],
-      parciales: [1, 2, 3].map(moment => parciales.filter(item => Number(item.Numero) === moment).map(item => item.id))
-    };
-  }
+  const saved = momentConfiguration[clase] || {};
+  const availableIds = new Set(cacheParciales.filter(item => item.Clase === clase).map(item => item.id));
+  const parcialIds = cacheParciales.filter(item => item.Clase === clase)
+    .sort((a, b) => Number(a.Numero) - Number(b.Numero))
+    .map(item => item.id);
+  const defaultGroups = [[], [], []];
+  parcialIds.forEach((id, index) => {
+    defaultGroups[Math.min(2, Math.floor(index * 3 / parcialIds.length))].push(id);
+  });
+  const legacyThresholds = saved.umbrales || [];
+  const legacyPartials = saved.parciales || [];
   return {
-    umbrales: [0, 1, 2].map(index => Number(saved.umbrales?.[index]) === 0.6 ? 0.6 : 0.5),
-    parciales: [0, 1, 2].map(index => Array.isArray(saved.parciales?.[index])
-      ? saved.parciales[index].filter(id => parciales.some(item => item.id === id))
-      : [])
+    umbrales: [0, 1, 2].map(index => {
+      const moment = saved[`Momento${index + 1}`] || saved[`momento${index + 1}`] || {};
+      const value = moment.Umbral ?? moment.umbral ?? legacyThresholds[index];
+      return Number(value) === 0.6 ? 0.6 : 0.5;
+    }),
+    parciales: [0, 1, 2].map(index => {
+      const moment = saved[`Momento${index + 1}`] || saved[`momento${index + 1}`] || {};
+      const selected = moment.Parciales ?? moment.parciales ?? legacyPartials[index];
+      return Array.isArray(selected)
+        ? selected.map(String).filter(id => availableIds.has(id))
+        : defaultGroups[index];
+    })
   };
+}
+
+function normalizeMomentConfigurations(value) {
+  const normalized = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return normalized;
+  Object.entries(value).forEach(([clase, saved]) => {
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return;
+    const config = { umbrales: saved.umbrales, parciales: saved.parciales };
+    [0, 1, 2].forEach(index => {
+      const name = `Momento${index + 1}`;
+      const moment = saved[name] || saved[`momento${index + 1}`] || {};
+      config[name] = {
+        Umbral: Number(moment.Umbral ?? moment.umbral ?? saved.umbrales?.[index]) === 0.6 ? 0.6 : 0.5,
+        Parciales: Array.isArray(moment.Parciales ?? moment.parciales)
+          ? (moment.Parciales ?? moment.parciales).map(String)
+          : Array.isArray(saved.parciales?.[index]) ? saved.parciales[index].map(String) : []
+      };
+    });
+    normalized[clase] = {
+      Momento1: config.Momento1,
+      Momento2: config.Momento2,
+      Momento3: config.Momento3
+    };
+  });
+  return normalized;
 }
 
 function renderMomentConfiguration() {
@@ -1464,17 +1503,21 @@ function renderMomentConfiguration() {
 async function saveMomentConfiguration() {
   const clase = document.getElementById("momento-clase").value;
   if (!clase) return;
-  const config = {
-    umbrales: [0, 1, 2].map(index => Number(document.querySelector(`[data-moment-threshold="${index}"]`)?.value) === 0.6 ? 0.6 : 0.5),
-    parciales: [0, 1, 2].map(index => [...document.querySelectorAll(`[data-moment-index="${index}"]:checked`)].map(input => input.dataset.parcialId))
-  };
+  const config = {};
+  [0, 1, 2].forEach(index => {
+    config[`Momento${index + 1}`] = {
+      Umbral: Number(document.querySelector(`[data-moment-threshold="${index}"]`)?.value) === 0.6 ? 0.6 : 0.5,
+      Parciales: [...document.querySelectorAll(`[data-moment-index="${index}"]:checked`)].map(input => input.dataset.parcialId)
+    };
+  });
+  const updatedConfigurations = { ...momentConfiguration, [clase]: config };
   const button = document.getElementById("btn-save-momentos");
   button.disabled = true;
   button.textContent = "Guardando…";
   try {
-    await db.collection("Usuarios").doc(DOCENTE_ID).update({ Momentos: { ...momentConfiguration, [clase]: config } });
-    momentConfiguration[clase] = config;
-    docenteData.Momentos = momentConfiguration;
+    await db.collection("Usuarios").doc(DOCENTE_ID).update({ Momentos: updatedConfigurations });
+    momentConfiguration = updatedConfigurations;
+    docenteData.Momentos = updatedConfigurations;
     document.getElementById("momentos-status").textContent = "Configuración guardada.";
     toast("Se guardó la configuración de los momentos.", "ok");
   } catch (error) {
@@ -1580,7 +1623,7 @@ function renderParciales() {
   const filter  = document.getElementById("parcial-clase-filter")?.value || "";
   let list = cacheParciales;
   if (filter) list = list.filter(p => p.Clase === filter);
-  list.sort((a,b) => (a.Clase+a.Numero).localeCompare(b.Clase+b.Numero));
+  list.sort((a,b) => a.Clase.localeCompare(b.Clase) || Number(a.Numero) - Number(b.Numero));
   if (!list.length) {
     tbody.innerHTML = `<tr class="tbl-empty"><td colspan="6">No hay parciales para esta clase. Crea uno con "+ Nuevo Parcial".</td></tr>`;
     return;
@@ -1623,7 +1666,7 @@ function openParcialModal(data = null) {
   document.getElementById("mp-title").textContent = data ? "Editar Parcial" : "Nuevo Parcial";
   document.getElementById("mp-id").value = data?.id || "";
   document.getElementById("mp-clase").value = data?.Clase || "";
-  document.getElementById("mp-num").value  = data?.Numero || "1";
+  document.getElementById("mp-num").value  = data?.Numero || getNextParcialNumber(data?.Clase || document.getElementById("mp-clase").value);
   const clase = data?.Clase || document.getElementById("mp-clase").value;
   const criterios = isTareasEnabled(clase)
     ? defaultCriteria
@@ -1637,6 +1680,11 @@ function openParcialModal(data = null) {
 function editParcial(id) {
   const p = cacheParciales.find(x => x.id === id);
   if (p) openParcialModal(p);
+}
+
+function getNextParcialNumber(clase) {
+  const numbers = cacheParciales.filter(item => item.Clase === clase).map(item => Number(item.Numero)).filter(Number.isInteger);
+  return Math.max(0, ...numbers) + 1;
 }
 
 function updateCopyParcialPreview() {
@@ -1662,16 +1710,8 @@ function openCopyParcialModal(sourceId) {
     return;
   }
   const target = document.getElementById("copy-partial-target");
-  target.replaceChildren();
-  [1, 2, 3].filter(number => number !== Number(source.Numero)).forEach(number => {
-    const existing = cacheParciales.some(item => item.Clase === source.Clase && Number(item.Numero) === number);
-    target.add(new Option(`Parcial ${number}${existing ? " (reemplazar rubros)" : ""}`, String(number)));
-  });
   document.getElementById("copy-partial-source").value = source.id;
-  const firstUnused = [...target.options].find(option => !cacheParciales.some(item =>
-    item.Clase === source.Clase && Number(item.Numero) === Number(option.value)
-  ));
-  target.value = firstUnused?.value || target.options[0]?.value || "";
+  target.value = String(getNextParcialNumber(source.Clase));
   updateCopyParcialPreview();
   openModal("modal-copiar-parcial");
 }
@@ -1679,8 +1719,8 @@ function openCopyParcialModal(sourceId) {
 async function copyParcialCriteria() {
   const source = cacheParciales.find(item => item.id === document.getElementById("copy-partial-source").value);
   const targetNumber = Number(document.getElementById("copy-partial-target").value);
-  if (!source || ![1, 2, 3].includes(targetNumber) || targetNumber === Number(source.Numero)) {
-    toast("Selecciona un parcial de origen y un parcial destino válidos.", "warn");
+  if (!source || !Number.isSafeInteger(targetNumber) || targetNumber < 1 || targetNumber === Number(source.Numero)) {
+    toast("Indica un número entero de parcial destino mayor que cero y distinto al origen.", "warn");
     return;
   }
   const existing = cacheParciales.find(item =>
@@ -1773,8 +1813,13 @@ function updatePctBar() {
 async function saveParcial() {
   const id    = document.getElementById("mp-id").value;
   const clase = document.getElementById("mp-clase").value;
-  const num   = document.getElementById("mp-num").value;
+  const num   = Number(document.getElementById("mp-num").value);
   if (!clase) { toast("Selecciona una clase", "warn"); return; }
+  if (!Number.isSafeInteger(num) || num < 1) { toast("El número de parcial debe ser un entero mayor que cero.", "warn"); return; }
+  const duplicate = cacheParciales.find(item =>
+    item.Clase === clase && Number(item.Numero) === num && item.id !== id
+  );
+  if (duplicate) { toast(`Ya existe el Parcial ${num} en esta clase.`, "warn"); return; }
 
   const nombres = [...document.querySelectorAll(".crit-nombre")].map(i => i.value.trim());
   const pcts    = [...document.querySelectorAll(".crit-pct")].map(i => Number(i.value)||0);
@@ -1791,7 +1836,7 @@ async function saveParcial() {
   const btn = document.getElementById("btn-save-parcial");
   btn.disabled = true; btn.innerHTML = `<span class="spinner-sm"></span>`;
   try {
-    const data = { Clase:clase, Numero:num, Criterios:criterios, FechaCreacion: new Date().toISOString() };
+    const data = { Clase:clase, Numero:String(num), Criterios:criterios, FechaCreacion: new Date().toISOString() };
     const col  = db.collection("Usuarios").doc(DOCENTE_ID).collection("Parciales");
     if (id) await col.doc(id).set(data, { merge:true });
     else    await col.add(data);
@@ -1953,6 +1998,10 @@ document.getElementById("cal-criterio").addEventListener("change", async () => {
 });
 document.getElementById("boleta-clase").addEventListener("change", onBoletaClaseChange);
 document.getElementById("boleta-grupo").addEventListener("change", onBoletaGrupoChange);
+document.getElementById("boleta-tipo").addEventListener("change", () => {
+  document.getElementById("boleta-results").innerHTML = "";
+  populateBoletaPeriodOptions();
+});
 document.getElementById("boleta-parcial").addEventListener("change", () => {
   document.getElementById("boleta-results").innerHTML = "";
   updateBoletaButton();
@@ -1963,6 +2012,9 @@ document.getElementById("grades-csv-file").addEventListener("change", e => {
 });
 document.getElementById("mt-clase").addEventListener("change", populateTareaModalOptions);
 document.getElementById("mp-clase").addEventListener("change", e => {
+  if (!document.getElementById("mp-id").value) {
+    document.getElementById("mp-num").value = getNextParcialNumber(e.target.value);
+  }
   const criteria = isTareasEnabled(e.target.value)
     ? defaultCriteria
     : defaultCriteria.filter(c => c.nombre.toLowerCase() !== "tareas");
@@ -2340,21 +2392,42 @@ function descargarCSV(rows, filename) {
 async function onBoletaClaseChange() {
   const clase = document.getElementById("boleta-clase").value;
   const grupoSelect = document.getElementById("boleta-grupo");
-  const parcialSelect = document.getElementById("boleta-parcial");
   grupoSelect.innerHTML = `<option value="">— Grupo —</option>`;
-  parcialSelect.innerHTML = `<option value="">— Parcial —</option>`;
   grupoSelect.disabled = true;
-  parcialSelect.disabled = true;
+  populateBoletaPeriodOptions();
   resetBoletaStudents();
   if (!clase) return;
 
-  const parciales = cacheParciales.filter(item => item.Clase === clase).sort((a,b) => Number(a.Numero) - Number(b.Numero));
-  parciales.forEach(item => parcialSelect.add(new Option(getPeriodLabel(item), item.id)));
-  parcialSelect.disabled = !parciales.length;
   const gradeMatch = clase.match(/\((\d)°\)/);
   const grupos = gradeMatch ? await loadGroupsForGrade(gradeMatch[1]) : [];
   grupos.forEach(grupo => grupoSelect.add(new Option(grupo, grupo)));
   grupoSelect.disabled = !grupos.length;
+}
+
+function populateBoletaPeriodOptions() {
+  const clase = document.getElementById("boleta-clase").value;
+  const type = document.getElementById("boleta-tipo").value;
+  const selector = document.getElementById("boleta-parcial");
+  const label = document.getElementById("boleta-period-label");
+  selector.replaceChildren();
+  if (type === "parcial") {
+    label.textContent = "Parcial";
+    selector.add(new Option("— Selecciona parcial —", ""));
+    cacheParciales.filter(item => item.Clase === clase)
+      .sort((a, b) => Number(a.Numero) - Number(b.Numero))
+      .forEach(item => selector.add(new Option(getPeriodLabel(item), item.id)));
+    selector.disabled = !clase || !selector.options.length || selector.options.length === 1;
+  } else if (type === "momento") {
+    label.textContent = "Momento";
+    selector.add(new Option("— Selecciona momento —", ""));
+    [1, 2, 3].forEach(number => selector.add(new Option(`Momento ${number}`, `momento:${number - 1}`)));
+    selector.disabled = !clase;
+  } else {
+    label.textContent = "Promedio";
+    selector.add(new Option("Promedio de los tres momentos", "promedio-momentos"));
+    selector.disabled = !clase;
+  }
+  updateBoletaButton();
 }
 
 async function onBoletaGrupoChange() {
@@ -2386,10 +2459,14 @@ function updateBoletaButton() {
   const ready = ["boleta-clase", "boleta-grupo", "boleta-parcial"]
     .every(id => document.getElementById(id).value) && boletaAlumnos.length > 0;
   document.getElementById("btn-generar-boleta").disabled = !ready;
-  document.getElementById("btn-generar-momentos").disabled =
-    !document.getElementById("boleta-clase").value
-    || !document.getElementById("boleta-grupo").value
-    || boletaAlumnos.length === 0;
+}
+
+function generarBoletaSeleccion() {
+  const type = document.getElementById("boleta-tipo").value;
+  const selected = document.getElementById("boleta-parcial").value;
+  if (type === "parcial") return generarBoleta();
+  if (type === "momento") return generarBoletaMomentos(Number(selected.split(":")[1]));
+  return generarBoletaMomentos();
 }
 
 async function generarBoleta() {
@@ -2463,16 +2540,21 @@ async function generarBoleta() {
   }
 }
 
-async function generarBoletaMomentos() {
+async function generarBoletaMomentos(selectedMomentIndex = null) {
   const clase = document.getElementById("boleta-clase").value;
   const grupo = document.getElementById("boleta-grupo").value;
   if (!clase || !grupo || !boletaAlumnos.length) return;
   const config = getMomentConfiguration(clase);
-  if (!config.parciales.some(selected => selected.length)) {
-    toast("Configura al menos un parcial en Administrar momentos antes de consultar.", "warn");
+  if (selectedMomentIndex !== null && (!Number.isInteger(selectedMomentIndex) || selectedMomentIndex < 0 || selectedMomentIndex > 2)) {
+    toast("Selecciona un momento válido.", "warn");
     return;
   }
-  const button = document.getElementById("btn-generar-momentos");
+  const momentIndices = selectedMomentIndex === null ? [0, 1, 2] : [selectedMomentIndex];
+  if (!momentIndices.some(index => config.parciales[index].length)) {
+    toast("Asigna parciales al momento desde Administrar momentos antes de consultarlo.", "warn");
+    return;
+  }
+  const button = document.getElementById("btn-generar-boleta");
   button.disabled = true;
   button.textContent = "Calculando…";
   try {
@@ -2480,26 +2562,29 @@ async function generarBoletaMomentos() {
     const records = snapshot.docs.map(doc => doc.data()).filter(record => record.Clase === clase);
     const rows = boletaAlumnos.map((alumno, index) => {
       const alumnoId = String(alumno.Matricula || alumno.id);
-      const momentGrades = [0, 1, 2].map(moment => calculateMomentGrade(alumnoId, clase, moment, records));
-      const finalGrade = momentGrades.every(grade => grade !== null)
+      const momentGrades = momentIndices.map(moment => calculateMomentGrade(alumnoId, clase, moment, records));
+      const finalGrade = selectedMomentIndex === null && momentGrades.every(grade => grade !== null)
         ? roundMomentGrade(momentGrades.reduce((sum, grade) => sum + grade, 0) / momentGrades.length, 0.5)
         : null;
       const cell = grade => grade === null
         ? `<span class="grade-pending">Pendiente</span>`
         : `<strong class="${grade >= 6 ? grade >= 7 ? "grade-green" : "grade-yellow" : "grade-red"}">${grade}</strong>`;
-      return `<tr><td>${index + 1}</td><td>${h(alumnoId)}</td><td>${h(nombreListaAlumno(alumno) || "—")}</td>
-        <td>${cell(momentGrades[0])}</td><td>${cell(momentGrades[1])}</td><td>${cell(momentGrades[2])}</td><td>${cell(finalGrade)}</td></tr>`;
+      const momentCells = momentGrades.map(cell).map(value => `<td>${value}</td>`).join("");
+      return `<tr><td>${index + 1}</td><td>${h(alumnoId)}</td><td>${h(nombreListaAlumno(alumno) || "—")}</td>${momentCells}${selectedMomentIndex === null ? `<td>${cell(finalGrade)}</td>` : ""}</tr>`;
     });
-    const thresholds = config.umbrales.map((value, index) => `Momento ${index + 1}: ${value.toFixed(1)}`).join(" · ");
-    const html = `<header class="boleta-heading"><h1>Promedios de los momentos</h1><p>${h(clase)} · Grupo ${h(grupo)} · ${thresholds}</p></header>
+    const thresholds = momentIndices.map(index => `Momento ${index + 1}: ${config.umbrales[index].toFixed(1)}`).join(" · ");
+    const momentHeaders = momentIndices.map(index => `<th>Momento ${index + 1}</th>`).join("");
+    const finalHeader = selectedMomentIndex === null ? "<th>Promedio de momentos</th>" : "";
+    const heading = selectedMomentIndex === null ? "Promedios de los momentos" : `Promedio del Momento ${selectedMomentIndex + 1}`;
+    const html = `<header class="boleta-heading"><h1>${heading}</h1><p>${h(clase)} · Grupo ${h(grupo)} · ${thresholds}</p></header>
       <div class="boleta-legend"><span class="grade-green">6 a 10 · Aprobado</span><span class="grade-red">0 a 5 · Reprobatoria (no sube a 6)</span><span class="grade-pending">Pendiente · falta completar algún parcial</span></div>
-      <div class="table-wrap moment-results-table"><table class="tbl boleta-summary-table"><thead><tr><th>#</th><th>Matrícula</th><th>Alumno</th><th>Momento 1</th><th>Momento 2</th><th>Momento 3</th><th>Promedio de momentos</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+      <div class="table-wrap moment-results-table"><table class="tbl boleta-summary-table"><thead><tr><th>#</th><th>Matrícula</th><th>Alumno</th>${momentHeaders}${finalHeader}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
     document.getElementById("boleta-results").innerHTML = `${html}<div class="boleta-action-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="btn btn-primary" onclick="imprimirBoletaGrupo()">Imprimir listado</button></div>`;
   } catch (error) {
     toast("No se pudieron calcular los momentos: " + error.message, "err");
   } finally {
     button.disabled = false;
-    button.textContent = "Consultar momentos";
+    button.textContent = "Consultar promedios";
   }
 }
 
