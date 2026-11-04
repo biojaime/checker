@@ -840,6 +840,28 @@
   </div>
 </div>
 
+<div class="modal-bg" id="modal-copiar-parcial">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Copiar criterios de parcial</h3>
+      <button class="modal-close" onclick="closeModal('modal-copiar-parcial')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="copy-partial-source">
+      <div class="fgroup">
+        <label for="copy-partial-target">Copiar a</label>
+        <select class="fselect" id="copy-partial-target"></select>
+      </div>
+      <p style="font-size:.84rem;color:var(--muted);">Solo se copiarán los nombres de los rubros y sus porcentajes. No se copian calificaciones, observaciones ni otros datos.</p>
+      <div id="copy-partial-preview" style="padding:10px;background:#f8fafc;border-radius:8px;font-size:.84rem;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gray" onclick="closeModal('modal-copiar-parcial')">Cancelar</button>
+      <button class="btn btn-primary btn-lg" id="btn-confirm-copy-partial" type="button">Copiar rubros</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ MODAL: TAREA ═══ -->
 <div class="modal-bg" id="modal-tarea">
   <div class="modal">
@@ -1572,8 +1594,9 @@ function renderParciales() {
       <td>${(p.Criterios||[]).map(c=>`<span class="chip chip-gray" style="font-size:0.72rem;">${h(c.nombre)} ${c.porcentaje}%</span>`).join(" ")}</td>
       <td><strong style="color:${ok?'var(--green)':'var(--red)'};">${total}%</strong></td>
       <td><span class="chip ${ok?'chip-green':'chip-red'}">${ok?'✓ Completo':'⚠ Incompleto'}</span></td>
-      <td style="display:flex;gap:5px;">
+      <td style="display:flex;gap:5px;flex-wrap:wrap;">
         <button class="btn btn-indigo" onclick="editParcial('${p.id}')">✏️ Editar</button>
+        <button class="btn btn-gray" type="button" data-copy-parcial="${h(p.id)}">Copiar parcial</button>
         <button class="btn btn-red" onclick="deleteParcial('${p.id}')">🗑</button>
       </td>
     </tr>`;
@@ -1581,6 +1604,10 @@ function renderParciales() {
 }
 
 document.getElementById("parcial-clase-filter").addEventListener("change", renderParciales);
+document.querySelector("#tbl-parciales tbody").addEventListener("click", event => {
+  const button = event.target.closest("[data-copy-parcial]");
+  if (button) openCopyParcialModal(button.dataset.copyParcial);
+});
 
 // ════════════════════════════════════════
 // PARCIAL CRUD
@@ -1611,6 +1638,93 @@ function editParcial(id) {
   const p = cacheParciales.find(x => x.id === id);
   if (p) openParcialModal(p);
 }
+
+function updateCopyParcialPreview() {
+  const sourceId = document.getElementById("copy-partial-source").value;
+  const targetNumber = Number(document.getElementById("copy-partial-target").value);
+  const source = cacheParciales.find(item => item.id === sourceId);
+  if (!source || !targetNumber) return;
+  const existing = cacheParciales.find(item =>
+    item.Clase === source.Clase && Number(item.Numero) === targetNumber
+  );
+  const criteria = (source.Criterios || []).map(item =>
+    `<span class="chip chip-gray" style="margin:2px;">${h(item.nombre)} ${h(item.porcentaje)}%</span>`
+  ).join("");
+  document.getElementById("copy-partial-preview").innerHTML =
+    `<strong>${h(source.Clase)} · Parcial ${h(targetNumber)}</strong><div style="margin-top:8px;">${criteria || "El parcial original no tiene rubros."}</div>` +
+    (existing ? `<p style="margin-top:8px;color:var(--amber);font-weight:700;">Ya existe este parcial; al continuar solo se reemplazarán sus rubros y porcentajes.</p>` : "");
+}
+
+function openCopyParcialModal(sourceId) {
+  const source = cacheParciales.find(item => item.id === sourceId);
+  if (!source) {
+    toast("No se encontró el parcial que deseas copiar.", "err");
+    return;
+  }
+  const target = document.getElementById("copy-partial-target");
+  target.replaceChildren();
+  [1, 2, 3].filter(number => number !== Number(source.Numero)).forEach(number => {
+    const existing = cacheParciales.some(item => item.Clase === source.Clase && Number(item.Numero) === number);
+    target.add(new Option(`Parcial ${number}${existing ? " (reemplazar rubros)" : ""}`, String(number)));
+  });
+  document.getElementById("copy-partial-source").value = source.id;
+  const firstUnused = [...target.options].find(option => !cacheParciales.some(item =>
+    item.Clase === source.Clase && Number(item.Numero) === Number(option.value)
+  ));
+  target.value = firstUnused?.value || target.options[0]?.value || "";
+  updateCopyParcialPreview();
+  openModal("modal-copiar-parcial");
+}
+
+async function copyParcialCriteria() {
+  const source = cacheParciales.find(item => item.id === document.getElementById("copy-partial-source").value);
+  const targetNumber = Number(document.getElementById("copy-partial-target").value);
+  if (!source || ![1, 2, 3].includes(targetNumber) || targetNumber === Number(source.Numero)) {
+    toast("Selecciona un parcial de origen y un parcial destino válidos.", "warn");
+    return;
+  }
+  const existing = cacheParciales.find(item =>
+    item.Clase === source.Clase && Number(item.Numero) === targetNumber
+  );
+  if (existing && !confirm(`El Parcial ${targetNumber} ya existe en ${source.Clase}. ¿Reemplazar únicamente sus rubros y porcentajes?`)) return;
+  const criteria = (source.Criterios || []).map(item => ({
+    nombre: String(item.nombre || ""),
+    porcentaje: Number(item.porcentaje) || 0
+  })).filter(item => item.nombre);
+  if (!criteria.length) {
+    toast("El parcial de origen no tiene rubros para copiar.", "warn");
+    return;
+  }
+  const button = document.getElementById("btn-confirm-copy-partial");
+  button.disabled = true;
+  button.textContent = "Copiando…";
+  try {
+    const collection = db.collection("Usuarios").doc(DOCENTE_ID).collection("Parciales");
+    if (existing) {
+      await collection.doc(existing.id).update({ Criterios: criteria });
+    } else {
+      await collection.add({
+        Clase: source.Clase,
+        Numero: String(targetNumber),
+        Criterios: criteria,
+        FechaCreacion: new Date().toISOString()
+      });
+    }
+    closeModal("modal-copiar-parcial");
+    toast(`Rubros copiados al Parcial ${targetNumber}; no se copiaron calificaciones ni otros datos.`, "ok");
+    await loadParciales();
+    renderClassCards(docenteData.Clases || []);
+    if (document.getElementById("cal-clase").value === source.Clase) onClaseCalChange();
+  } catch (error) {
+    toast("No se pudieron copiar los rubros: " + error.message, "err");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Copiar rubros";
+  }
+}
+
+document.getElementById("copy-partial-target").addEventListener("change", updateCopyParcialPreview);
+document.getElementById("btn-confirm-copy-partial").addEventListener("click", copyParcialCriteria);
 
 function renderCriteriaList(crits) {
   const list = document.getElementById("criteria-list");
