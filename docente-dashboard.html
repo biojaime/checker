@@ -342,6 +342,7 @@
     .grade-green { color:#15803d; background:#dcfce7; }
     .grade-yellow { color:#b45309; background:#fef3c7; }
     .grade-red { color:#dc2626; background:#fee2e2; }
+    .grade-orange { color:#c2410c; background:#ffedd5; }
     .grade-pending { color:#64748b; background:#f1f5f9; }
 
     /* ─── SECTION HEADING ─── */
@@ -670,7 +671,7 @@
               </div>
               <button class="btn btn-primary btn-lg" id="btn-generar-boleta" onclick="generarBoletaSeleccion()" disabled>Consultar promedios</button>
             </div>
-            <p style="color:var(--muted); margin-top:12px; font-size:0.85rem;">Elige consultar un parcial, un momento individual o el promedio de los tres momentos. Los parciales se redondean a una décima y los momentos a número entero conforme al umbral configurado.</p>
+            <p style="color:var(--muted); margin-top:12px; font-size:0.85rem;">Elige consultar un parcial, un momento individual o el promedio de los tres momentos. Los correos de parciales incluyen la gráfica por rubro; los de momentos comparan los rubros de sus parciales y resaltan sus promedios. El redondeo del momento sigue el umbral docente configurado.</p>
             <div id="boleta-results" style="margin-top:16px;"></div>
           </div>
         </div>
@@ -790,7 +791,7 @@
       <button class="modal-close" onclick="closeModal('modal-boleta-envio')">×</button>
     </div>
     <div class="modal-body">
-      <p style="margin-bottom:12px;">Cada alumno recibirá únicamente su propio reporte. Revisa y corrige las calificaciones u observaciones antes del envío.</p>
+      <p id="boleta-email-instructions" style="margin-bottom:12px;">Cada alumno recibirá únicamente su propio reporte.</p>
       <div id="boleta-email-preview"></div>
     </div>
     <div class="modal-foot">
@@ -1185,8 +1186,8 @@ function h(s) {
 function getPeriodLabel(parcial) {
   const number = Number(parcial?.Numero);
   return Number.isInteger(number) && number > 0
-    ? `Parcial ${number} · Momento ${number}`
-    : "Parcial / momento";
+    ? `Parcial ${number}`
+    : "Parcial";
 }
 
 function getGradeBand(value) {
@@ -1536,7 +1537,8 @@ function roundPartialGrade(value) {
 
 function roundMomentGrade(value, threshold) {
   const whole = Math.floor(value);
-  const rounded = value - whole >= threshold ? whole + 1 : whole;
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(value)) * 4;
+  const rounded = value - whole + tolerance >= threshold ? whole + 1 : whole;
   return value < 6 ? Math.min(rounded, 5) : rounded;
 }
 
@@ -1571,6 +1573,57 @@ function calculateMomentGrade(studentId, clase, momentIndex, records) {
   if (grades.some(grade => grade === null)) return null;
   const average = grades.reduce((sum, grade) => sum + grade, 0) / grades.length;
   return roundMomentGrade(average, config.umbrales[momentIndex]);
+}
+
+function gradeNumberInSpanish(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "sin calificación";
+  const integerWords = ["cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez"];
+  const digitWords = ["cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"];
+  const formatted = Number.isInteger(number) ? String(number) : number.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  const [integerPart, decimalPart] = formatted.split(".");
+  const integer = Number(integerPart);
+  const integerText = integerWords[integer] || integerPart;
+  return decimalPart ? `${integerText} punto ${[...decimalPart].map(digit => digitWords[Number(digit)]).join(" ")}` : integerText;
+}
+
+function getMomentStudentDetails(studentId, clase, momentIndex, records) {
+  const config = getMomentConfiguration(clase);
+  const partialReports = config.parciales[momentIndex].map(id => {
+    const parcial = cacheParciales.find(item => item.id === id && item.Clase === clase);
+    if (!parcial) return null;
+    const criteria = parcial.Criterios || [];
+    const studentRecords = records.filter(record =>
+      String(record.AlumnoMatricula) === String(studentId) && record.Clase === clase && record.ParcialId === parcial.id
+    );
+    const grades = new Map(studentRecords.map(record => [record.Criterio, record]));
+    const items = criteria.map(criterion => {
+      const record = grades.get(criterion.nombre) || {};
+      const value = record.Calificacion;
+      const grade = value === undefined || value === null || value === "" ? null : Number(value);
+      return {
+        Criterio: criterion.nombre,
+        Calificacion: grade !== null && Number.isFinite(grade) ? grade : "",
+        Observaciones: record.Observaciones || ""
+      };
+    });
+    return {
+      parcial,
+      grade: calculatePartialGrade(studentId, clase, parcial, records),
+      items
+    };
+  }).filter(Boolean).sort((a, b) => Number(a.parcial.Numero) - Number(b.parcial.Numero));
+  const complete = partialReports.length > 0 && partialReports.every(report => report.grade !== null);
+  const average = complete
+    ? partialReports.reduce((sum, report) => sum + report.grade, 0) / partialReports.length
+    : null;
+  return {
+    partialReports,
+    complete,
+    average,
+    grade: complete ? roundMomentGrade(average, config.umbrales[momentIndex]) : null,
+    threshold: config.umbrales[momentIndex]
+  };
 }
 
 document.getElementById("momento-clase").addEventListener("change", renderMomentConfiguration);
@@ -2504,6 +2557,7 @@ async function generarBoleta() {
         ? commentSnap.data().Comentario || ""
         : studentRecords.find(record => record.Comentario)?.Comentario || "";
       boletaReportData[index] = {
+        tipo: "parcial",
         alumno,
         parcial,
         clase,
@@ -2557,18 +2611,47 @@ async function generarBoletaMomentos(selectedMomentIndex = null) {
   const button = document.getElementById("btn-generar-boleta");
   button.disabled = true;
   button.textContent = "Calculando…";
+  boletaReportData = [];
   try {
     const snapshot = await db.collection("Calificaciones").where("DocenteId", "==", DOCENTE_ID).get();
     const records = snapshot.docs.map(doc => doc.data()).filter(record => record.Clase === clase);
     const rows = boletaAlumnos.map((alumno, index) => {
       const alumnoId = String(alumno.Matricula || alumno.id);
       const momentGrades = momentIndices.map(moment => calculateMomentGrade(alumnoId, clase, moment, records));
+      if (selectedMomentIndex !== null) {
+        const details = getMomentStudentDetails(alumnoId, clase, selectedMomentIndex, records);
+        boletaReportData[index] = {
+          tipo: "momento",
+          alumno,
+          clase,
+          momentIndex: selectedMomentIndex,
+          momentLabel: `Momento ${selectedMomentIndex + 1}`,
+          ...details,
+          enviado: false
+        };
+      } else {
+        const moments = [0, 1, 2].map(momentIndex => ({
+          momentIndex,
+          momentLabel: `Momento ${momentIndex + 1}`,
+          ...getMomentStudentDetails(alumnoId, clase, momentIndex, records)
+        }));
+        boletaReportData[index] = {
+          tipo: "promedio-momentos",
+          alumno,
+          clase,
+          moments,
+          finalGrade: momentGrades.every(grade => grade !== null)
+            ? roundMomentGrade(momentGrades.reduce((sum, grade) => sum + grade, 0) / momentGrades.length, 0.5)
+            : null,
+          enviado: false
+        };
+      }
       const finalGrade = selectedMomentIndex === null && momentGrades.every(grade => grade !== null)
         ? roundMomentGrade(momentGrades.reduce((sum, grade) => sum + grade, 0) / momentGrades.length, 0.5)
         : null;
       const cell = grade => grade === null
         ? `<span class="grade-pending">Pendiente</span>`
-        : `<strong class="${grade >= 6 ? grade >= 7 ? "grade-green" : "grade-yellow" : "grade-red"}">${grade}</strong>`;
+        : `<strong class="${grade >= 7 ? "grade-green" : grade >= 6 ? "grade-yellow" : "grade-orange"}">${grade}</strong>`;
       const momentCells = momentGrades.map(cell).map(value => `<td>${value}</td>`).join("");
       return `<tr><td>${index + 1}</td><td>${h(alumnoId)}</td><td>${h(nombreListaAlumno(alumno) || "—")}</td>${momentCells}${selectedMomentIndex === null ? `<td>${cell(finalGrade)}</td>` : ""}</tr>`;
     });
@@ -2577,9 +2660,13 @@ async function generarBoletaMomentos(selectedMomentIndex = null) {
     const finalHeader = selectedMomentIndex === null ? "<th>Promedio de momentos</th>" : "";
     const heading = selectedMomentIndex === null ? "Promedios de los momentos" : `Promedio del Momento ${selectedMomentIndex + 1}`;
     const html = `<header class="boleta-heading"><h1>${heading}</h1><p>${h(clase)} · Grupo ${h(grupo)} · ${thresholds}</p></header>
-      <div class="boleta-legend"><span class="grade-green">6 a 10 · Aprobado</span><span class="grade-red">0 a 5 · Reprobatoria (no sube a 6)</span><span class="grade-pending">Pendiente · falta completar algún parcial</span></div>
+      <div class="boleta-legend"><span class="grade-green">7 a 10 · Aprobado</span><span class="grade-yellow">6 a 6.9 · En seguimiento</span><span class="grade-orange">0 a 5.9 · Reprobatoria</span><span class="grade-pending">Pendiente · falta completar algún parcial</span></div>
       <div class="table-wrap moment-results-table"><table class="tbl boleta-summary-table"><thead><tr><th>#</th><th>Matrícula</th><th>Alumno</th>${momentHeaders}${finalHeader}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
-    document.getElementById("boleta-results").innerHTML = `${html}<div class="boleta-action-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="btn btn-primary" onclick="imprimirBoletaGrupo()">Imprimir listado</button></div>`;
+    const emailButtonLabel = selectedMomentIndex === null
+      ? "✉️ Enviar promedios por correo"
+      : `✉️ Enviar promedio del Momento ${selectedMomentIndex + 1} por correo`;
+    const emailButton = `<button class="btn btn-indigo" onclick="openBoletaEmailPreview()">${emailButtonLabel}</button>`;
+    document.getElementById("boleta-results").innerHTML = `${html}<div class="boleta-action-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="btn btn-primary" onclick="imprimirBoletaGrupo()">Imprimir listado</button>${emailButton}</div>`;
   } catch (error) {
     toast("No se pudieron calcular los momentos: " + error.message, "err");
   } finally {
@@ -2596,7 +2683,7 @@ function imprimirBoletaGrupo() {
   const printWindow = window.open("", "_blank");
   if (!printWindow) { toast("Permite ventanas emergentes para imprimir el listado", "warn"); return; }
   printWindow.document.write(`<!doctype html><html lang="es"><meta charset="utf-8"><title>Promedios - ${h(clase)}</title>
-    <style>body{font:14px Arial,sans-serif;color:#17202a;margin:28px}.boleta-heading h1{font-size:22px;margin:0 0 6px}.boleta-heading p{color:#475569;margin:0 0 18px}.boleta-legend{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;font-size:12px;font-weight:bold}.boleta-legend span,.boleta-summary-table strong{display:inline-block;padding:4px 8px;border-radius:6px}.grade-green{color:#15803d;background:#dcfce7}.grade-yellow{color:#b45309;background:#fef3c7}.grade-red{color:#dc2626;background:#fee2e2}.grade-pending{color:#64748b;background:#f1f5f9}table{width:100%;border-collapse:collapse}th,td{padding:9px;border:1px solid #cbd5e1;text-align:left;vertical-align:top}th{background:#f1f5f9}@media print{body{margin:12mm}}</style>
+    <style>body{font:14px Arial,sans-serif;color:#17202a;margin:28px}.boleta-heading h1{font-size:22px;margin:0 0 6px}.boleta-heading p{color:#475569;margin:0 0 18px}.boleta-legend{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;font-size:12px;font-weight:bold}.boleta-legend span,.boleta-summary-table strong{display:inline-block;padding:4px 8px;border-radius:6px}.grade-green{color:#15803d;background:#dcfce7}.grade-yellow{color:#b45309;background:#fef3c7}.grade-red{color:#dc2626;background:#fee2e2}.grade-orange{color:#c2410c;background:#ffedd5}.grade-pending{color:#64748b;background:#f1f5f9}table{width:100%;border-collapse:collapse}th,td{padding:9px;border:1px solid #cbd5e1;text-align:left;vertical-align:top}th{background:#f1f5f9}@media print{body{margin:12mm}}</style>
     ${summaryContent.innerHTML}<script>window.onload=()=>window.print()<\/script></html>`);
   printWindow.document.close();
 }
@@ -2611,14 +2698,46 @@ function openBoletaEmailPreview() {
     toast(`Falta un correo válido para ${missingEmails.length} alumno(s). Corrige sus datos antes de enviar.`, "warn");
     return;
   }
-  renderBoletaEmailPreview();
+  try {
+    renderBoletaEmailPreview();
+  } catch (error) {
+    toast("No se pudo preparar la vista previa de los reportes: " + error.message, "err");
+    return;
+  }
   openModal("modal-boleta-envio");
 }
 
 function renderBoletaEmailPreview() {
   const preview = document.getElementById("boleta-email-preview");
+  const instructions = document.getElementById("boleta-email-instructions");
+  if (instructions) {
+    instructions.textContent = boletaReportData[0]?.tipo === "parcial"
+      ? "Cada alumno recibirá únicamente su reporte del parcial. Revisa y corrige las calificaciones u observaciones antes del envío."
+      : "Cada alumno recibirá únicamente su reporte de promedios. Los parciales se muestran en los momentos donde están configurados.";
+  }
   preview.innerHTML = boletaReportData.map((report, reportIndex) => {
     const alumno = report.alumno;
+    if (report.tipo === "promedio-momentos") {
+      const tone = getOfficialGradeTone(report.finalGrade);
+      const grade = report.finalGrade === null ? "Pendiente" : `${report.finalGrade} (${gradeNumberInSpanish(report.finalGrade)})`;
+      return `<section style="border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px 0;">
+        <h4>${h(nombreListaAlumno(alumno) || "Alumno")} · ${h(alumno.Correo)}${report.enviado ? " · Enviado" : ""}</h4>
+        <p style="font-size:.82rem;color:var(--muted);margin:4px 0 10px;">${h(report.clase)} · Promedio de los tres momentos · ${h(alumno.Grado || "—")} ${h(alumno.Grupo || "—")}</p>
+        <p id="boleta-email-total-${reportIndex}" style="margin:8px 0;font-weight:700;">Promedio final: <strong style="color:${tone.foreground};background:${tone.background};padding:4px 8px;border-radius:6px;">${h(grade)}</strong></p>
+        <p style="font-size:.82rem;color:var(--muted);">Cada parcial se muestra dentro del momento donde está seleccionado en Administrar momentos.</p>
+        <details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;">Ver correo individual completo</summary><div id="boleta-email-content-${reportIndex}" style="margin-top:10px;padding:14px;border:1px solid var(--border);border-radius:8px;background:#fff;"></div></details>
+      </section>`;
+    }
+    if (report.tipo === "momento") {
+      const gradeSummary = getMomentEmailGradeSummary(report);
+      return `<section style="border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px 0;">
+        <h4>${h(nombreListaAlumno(alumno) || "Alumno")} · ${h(alumno.Correo)}${report.enviado ? " · Enviado" : ""}</h4>
+        <p style="font-size:.82rem;color:var(--muted);margin:4px 0 10px;">${h(report.clase)} · ${h(report.momentLabel)} · ${h(alumno.Grado || "—")} ${h(alumno.Grupo || "—")}</p>
+        <p id="boleta-email-total-${reportIndex}" style="margin:8px 0;font-weight:700;">${h(gradeSummary)}</p>
+        <p style="font-size:.82rem;color:var(--muted);">Este reporte se calcula con los parciales asignados a ${h(report.momentLabel)}. El criterio de redondeo del docente es ${report.threshold.toFixed(1)}; una calificación reprobatoria no se eleva a 6.</p>
+        <details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;">Ver correo individual completo</summary><div id="boleta-email-content-${reportIndex}" style="margin-top:10px;padding:14px;border:1px solid var(--border);border-radius:8px;background:#fff;"></div></details>
+      </section>`;
+    }
     const gradeSummary = getBoletaEmailGradeSummary(report);
     const gradeRows = report.items.map((item, criterionIndex) => `<tr>
       <td>${h(item.Criterio)}</td>
@@ -2627,7 +2746,7 @@ function renderBoletaEmailPreview() {
     </tr>`).join("");
     return `<section style="border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px 0;">
       <h4>${h(nombreListaAlumno(alumno) || "Alumno")} · ${h(alumno.Correo)}${report.enviado ? " · Enviado" : ""}</h4>
-      <p style="font-size:.82rem;color:var(--muted);margin:4px 0 10px;">${h(report.clase)} · ${h(getPeriodLabel(report.parcial))} · ${h(alumno.Grado || "—")} ${h(alumno.Grupo || "—")}</p>
+      <p style="font-size:.82rem;color:var(--muted);margin:4px 0 10px;">${h(report.clase)} · ${h(report.tipo === "momento" ? report.momentLabel : getPeriodLabel(report.parcial))} · ${h(alumno.Grado || "—")} ${h(alumno.Grupo || "—")}</p>
       <p id="boleta-email-total-${reportIndex}" style="margin:8px 0;font-weight:700;">${h(gradeSummary)}</p>
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Criterio</th><th>Calificación (0–10)</th><th>Observación</th></tr></thead><tbody>${gradeRows}</tbody></table></div>
       <label class="fgroup" style="display:block;margin-top:10px;">Comentario general<textarea class="finput boleta-comment-edit" rows="2" data-report="${reportIndex}">${h(report.comentarioParcial)}</textarea></label>
@@ -2637,7 +2756,9 @@ function renderBoletaEmailPreview() {
   boletaReportData.forEach((report, reportIndex) => updateBoletaEmailContentPreview(reportIndex));
   preview.querySelectorAll(".boleta-grade-edit").forEach(input => input.addEventListener("input", () => {
     const reportIndex = Number(input.dataset.report);
-    const item = boletaReportData[reportIndex].items[Number(input.dataset.criterion)];
+    const report = boletaReportData[reportIndex];
+    report.chartData = "";
+    const item = report.items[Number(input.dataset.criterion)];
     item.Calificacion = input.value;
     updateBoletaPreviewTotal(reportIndex);
     updateBoletaEmailContentPreview(reportIndex);
@@ -2656,6 +2777,140 @@ function renderBoletaEmailPreview() {
   const sendButton = document.getElementById("btn-confirm-boleta-send");
   sendButton.textContent = `Enviar ${boletaReportData.filter(report => !report.enviado).length} reporte(s)`;
   sendButton.disabled = !boletaReportData.some(report => !report.enviado);
+}
+
+function getOfficialGradeTone(grade) {
+  if (grade === null || grade === undefined || !Number.isFinite(Number(grade))) {
+    return { foreground: "#64748b", background: "#f1f5f9", label: "Pendiente" };
+  }
+  if (Number(grade) >= 7) return { foreground: "#15803d", background: "#dcfce7", label: "Aprobado" };
+  if (Number(grade) >= 6) return { foreground: "#b45309", background: "#fef3c7", label: "En seguimiento" };
+  return { foreground: "#c2410c", background: "#ffedd5", label: "Reprobatoria" };
+}
+
+function getMomentSourcePartialLabel(partial) {
+  const number = Number(partial?.Numero);
+  return Number.isFinite(number) ? `Parcial ${number}` : getPeriodLabel(partial);
+}
+
+function getMomentEmailGradeSummary(report) {
+  const momentTone = getOfficialGradeTone(report.grade);
+  const momentText = report.grade === null
+    ? "Pendiente"
+    : `${report.grade} (${gradeNumberInSpanish(report.grade)})`;
+  const partialText = report.partialReports.map(item =>
+    `${getMomentSourcePartialLabel(item.parcial)}: ${item.grade === null ? "Pendiente" : `${item.grade.toFixed(1)} (${gradeNumberInSpanish(item.grade)})`}`
+  ).join(" · ");
+  const averageText = report.average === null
+    ? "Pendiente"
+    : `${report.average.toFixed(2)} (${gradeNumberInSpanish(report.average)})`;
+  return `${partialText} · Promedio del momento: ${averageText} · Calificación: ${momentText} · ${momentTone.label}`;
+}
+
+function getMomentComparisonRows(report) {
+  const labels = [...new Set(report.partialReports.flatMap(partial => partial.items.map(item => item.Criterio)))];
+  return labels.map(name => {
+    const grades = report.partialReports.map(partial => {
+      const rawGrade = partial.items.find(item => item.Criterio === name)?.Calificacion;
+      const grade = rawGrade === "" || rawGrade === null || rawGrade === undefined ? null : Number(rawGrade);
+      return grade !== null && Number.isFinite(grade) ? grade : null;
+    });
+    const available = grades.filter(grade => grade !== null);
+    const delta = available.length > 1 ? available[available.length - 1] - available[0] : null;
+    const change = delta === null ? "Sin datos suficientes" : delta > 0.05 ? "Mejoró" : delta < -0.05 ? "Empeoró" : "Sin cambio";
+    return { name, grades, delta, change };
+  });
+}
+
+function getBoletaEmailChartData(report) {
+  if (report.chartData) return report.chartData;
+  if (!window.Chart) return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = 900;
+  let chart;
+  try {
+    if (report.tipo === "momento") {
+      const comparisons = getMomentComparisonRows(report);
+      canvas.height = Math.max(300, comparisons.length * 44 + 100);
+      const firstGrade = comparison => comparison.grades.find(grade => grade !== null);
+      const lastGrade = comparison => [...comparison.grades].reverse().find(grade => grade !== null);
+      chart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: comparisons.map(item => item.name),
+          datasets: report.partialReports.map((partial, partialIndex) => ({
+            label: getMomentSourcePartialLabel(partial.parcial),
+            data: comparisons.map(item => item.grades[partialIndex]),
+            backgroundColor: comparisons.map(item => {
+              const first = firstGrade(item);
+              const last = lastGrade(item);
+              if (first === undefined || last === undefined) return "#cbd5e1";
+              return last > first + 0.05 ? "#16a34a" : last < first - 0.05 ? "#f97316" : "#64748b";
+            }),
+            borderRadius: 4,
+            maxBarThickness: 22
+          }))
+        },
+        options: {
+          indexAxis: "y",
+          responsive: false,
+          animation: false,
+          layout: { padding: { right: 34 } },
+          scales: {
+            x: { min: 0, max: 10, ticks: { stepSize: 2 }, title: { display: true, text: "Calificación por rubro (0–10)" } },
+            y: { grid: { display: false } }
+          },
+          plugins: {
+            title: { display: true, text: `Comparación de rubros · ${report.momentLabel}` },
+            tooltip: {
+              callbacks: {
+                afterBody(context) {
+                  const comparison = comparisons[context[0]?.dataIndex];
+                  return comparison ? `Tendencia: ${comparison.change}` : "";
+                }
+              }
+            }
+          }
+        }
+      });
+    } else {
+      const criteria = (report.parcial?.Criterios || []).map(criterion => {
+        const item = report.items.find(entry => entry.Criterio === criterion.nombre);
+        const value = item?.Calificacion;
+        const grade = value === "" || value === null || value === undefined ? null : Number(value);
+        return { name: criterion.nombre, percentage: Number(criterion.porcentaje) || 0, grade: grade !== null && Number.isFinite(grade) ? grade : null };
+      });
+      canvas.height = Math.max(280, criteria.length * 42 + 80);
+      chart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: criteria.map(item => `${item.name} (${item.percentage}%)`),
+          datasets: [{
+            label: "Calificación sobre 10",
+            data: criteria.map(item => item.grade),
+            backgroundColor: criteria.map(item => item.grade === null ? "#9ca3af" : getGradeBand(item.grade).color),
+            borderRadius: 4,
+            maxBarThickness: 26
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: false,
+          animation: false,
+          layout: { padding: { right: 34 } },
+          scales: {
+            x: { min: 0, max: 10, ticks: { stepSize: 2 }, title: { display: true, text: "Calificación (0–10)" } },
+            y: { grid: { display: false } }
+          },
+          plugins: { legend: { display: false }, title: { display: true, text: "Calificaciones por rubro" } }
+        }
+      });
+    }
+    report.chartData = chart.toBase64Image().split(",")[1] || "";
+    return report.chartData;
+  } finally {
+    if (chart) chart.destroy();
+  }
 }
 
 function getBoletaEmailGradeSummary(report) {
@@ -2678,13 +2933,91 @@ function getBoletaEmailGradeSummary(report) {
 
 function updateBoletaPreviewTotal(reportIndex) {
   const label = document.getElementById(`boleta-email-total-${reportIndex}`);
-  if (label) label.textContent = getBoletaEmailGradeSummary(boletaReportData[reportIndex]);
+  const report = boletaReportData[reportIndex];
+  if (label && report) label.textContent = report.tipo === "momento"
+    ? getMomentEmailGradeSummary(report)
+    : report.tipo === "promedio-momentos"
+      ? `Promedio final: ${report.finalGrade === null ? "Pendiente" : `${report.finalGrade} (${gradeNumberInSpanish(report.finalGrade)})`}`
+    : getBoletaEmailGradeSummary(report);
 }
 
 function updateBoletaEmailContentPreview(reportIndex) {
   const container = document.getElementById(`boleta-email-content-${reportIndex}`);
   const report = boletaReportData[reportIndex];
   if (!container || !report) return;
+  if (report.tipo === "promedio-momentos") {
+    try {
+      report.moments.forEach(moment => {
+        moment.chartData = moment.partialReports.length ? getBoletaEmailChartData(moment) : "";
+      });
+    } catch (error) {
+      container.textContent = "No se pudieron crear las gráficas de los momentos: " + error.message;
+      return;
+    }
+    const finalTone = getOfficialGradeTone(report.finalGrade);
+    const momentSections = report.moments.map((moment, index) => buildMomentEmailSection(moment, `report-chart-${index + 1}`)).join("");
+    const chartData = report.moments.map((moment, index) => moment.chartData
+      ? { contentId: `report-chart-${index + 1}`, data: moment.chartData }
+      : null).filter(Boolean);
+    report.chartAttachments = chartData;
+    container.innerHTML = `<p><strong>Para:</strong> ${h(nombreListaAlumno(report.alumno))} &lt;${h(report.alumno.Correo)}&gt;</p>
+      <h3>${h(report.clase)} · Promedio de los tres momentos</h3>
+      <p>Este reporte muestra los parciales asignados en la configuración docente de cada momento; el número del parcial no determina a qué momento pertenece.</p>
+      <p style="padding:14px;text-align:center;border:2px solid ${finalTone.foreground};background:${finalTone.background};border-radius:8px;">
+        <strong style="font-size:14px;">Promedio final de los momentos</strong><br>
+        <strong style="font-size:32px;color:${finalTone.foreground};">${report.finalGrade === null ? "Pendiente" : `${report.finalGrade} / 10`}</strong>
+        <span style="font-weight:bold;">${h(report.finalGrade === null ? finalTone.label : gradeNumberInSpanish(report.finalGrade))}</span>
+      </p>
+      ${momentSections}
+      <p style="color:#687078;font-size:12px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}).</p>`;
+    return;
+  }
+  let chartData = "";
+  try {
+    chartData = getBoletaEmailChartData(report);
+  } catch (error) {
+    container.textContent = "No se pudo crear la gráfica del reporte: " + error.message;
+    return;
+  }
+  const chartImage = chartData
+    ? `<img src="data:image/png;base64,${chartData}" alt="${report.tipo === "momento" ? "Comparación de calificaciones por rubro" : "Calificaciones del parcial por rubro"}" style="display:block;width:100%;max-width:680px;margin:18px auto;">`
+    : `<p style="color:#b45309;">No se pudo cargar la gráfica. Verifica tu conexión e inténtalo de nuevo.</p>`;
+  if (report.tipo === "momento") {
+    const tone = getOfficialGradeTone(report.grade);
+    const gradeText = report.grade === null ? "Pendiente" : `${report.grade} / 10`;
+    const cards = report.partialReports.map(partial => {
+      const partialTone = getOfficialGradeTone(partial.grade);
+      return `<td style="padding:14px;border:1px solid #d1d5db;text-align:center;background:${partialTone.background};">
+        <div style="font-size:13px;">${h(getMomentSourcePartialLabel(partial.parcial))}</div>
+        <strong style="display:block;font-size:25px;color:${partialTone.foreground};">${partial.grade === null ? "Pendiente" : `${partial.grade.toFixed(1)} / 10`}</strong>
+        <span>${partial.grade === null ? "" : h(gradeNumberInSpanish(partial.grade))}</span>
+      </td>`;
+    }).join("");
+    const average = report.average === null ? "Pendiente" : `${report.average.toFixed(2)} / 10`;
+    const comparisons = getMomentComparisonRows(report);
+    const comparisonRows = comparisons.map(item => {
+      const changeColor = item.change === "Mejoró" ? "#15803d" : item.change === "Empeoró" ? "#c2410c" : "#64748b";
+      const grades = item.grades.map(grade => `<td style="padding:7px;border:1px solid #ddd;text-align:center;">${grade === null ? "—" : grade.toFixed(1)}</td>`).join("");
+      const delta = item.delta === null ? "—" : `${item.delta > 0 ? "+" : ""}${item.delta.toFixed(1)}`;
+      return `<tr><td style="padding:7px;border:1px solid #ddd;">${h(item.name)}</td>${grades}<td style="padding:7px;border:1px solid #ddd;color:${changeColor};font-weight:bold;">${delta} · ${h(item.change)}</td></tr>`;
+    }).join("");
+    const columns = report.partialReports.map(partial => `<th style="padding:7px;border:1px solid #ddd;">${h(getMomentSourcePartialLabel(partial.parcial))}</th>`).join("");
+    container.innerHTML = `<p><strong>Para:</strong> ${h(nombreListaAlumno(report.alumno))} &lt;${h(report.alumno.Correo)}&gt;</p>
+      <h3>${h(report.clase)} · ${h(report.momentLabel)}</h3>
+      <p>El promedio de este momento se obtiene promediando los parciales asignados a ${h(report.momentLabel)}: ${report.partialReports.map(partial => h(getMomentSourcePartialLabel(partial.parcial))).join(" y ")}.</p>
+      <table style="width:100%;border-collapse:collapse;"><tr>${cards}<td style="padding:14px;border:2px solid ${tone.foreground};text-align:center;background:${tone.background};">
+        <div style="font-size:13px;">Promedio matemático del momento</div><strong style="display:block;font-size:20px;">${average}</strong>
+        <div style="margin-top:8px;font-size:13px;">Calificación del momento</div><strong style="display:block;font-size:32px;color:${tone.foreground};">${gradeText}</strong>
+        <span style="font-weight:bold;">${h(report.grade === null ? tone.label : gradeNumberInSpanish(report.grade))}</span>
+      </td></tr></table>
+      <p style="margin-top:8px;"><strong>Redondeo docente:</strong> ${report.threshold.toFixed(1)}. En calificaciones reprobatorias no se aplica el umbral para subir a 6.</p>
+      ${chartImage}
+      <p style="font-size:12px;"><strong>Colores de la gráfica:</strong> <span style="color:#15803d;">verde = mejoró</span> · <span style="color:#c2410c;">naranja = empeoró</span> · gris = sin cambio o sin datos suficientes.</p>
+      <h4>Comparación por rubro</h4>
+      <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="padding:7px;border:1px solid #ddd;">Rubro</th>${columns}<th style="padding:7px;border:1px solid #ddd;">Cambio (primer a último parcial)</th></tr></thead><tbody>${comparisonRows || `<tr><td colspan="${report.partialReports.length + 2}">Sin rubros para comparar.</td></tr>`}</tbody></table>
+      <p style="color:#687078;font-size:12px;margin-top:12px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}).</p>`;
+    return;
+  }
   const criteria = report.parcial?.Criterios || [];
   const rows = criteria.map(criterion => {
     const item = report.items.find(entry => entry.Criterio === criterion.nombre);
@@ -2703,9 +3036,43 @@ function updateBoletaEmailContentPreview(reportIndex) {
     <h4>Reporte individual · ${h(report.clase)} · ${h(getPeriodLabel(report.parcial))}</h4>
     <p>${h(report.alumno.Grado || "—")} · Grupo ${h(report.alumno.Grupo || "—")} · Matrícula ${h(report.alumno.Matricula || report.alumno.id)}</p>
     <p><strong>${h(summary)}</strong></p>
+    ${chartImage}
     <div class="table-wrap"><table class="tbl"><thead><tr><th>Criterio</th><th>Peso</th><th>Calificación</th><th>Aporta</th><th>Observación / evidencia</th></tr></thead><tbody>${rows}</tbody></table></div>
     <h4 style="margin-top:10px;">Comentarios y observaciones</h4>${comments || "<p>Sin comentarios u observaciones registrados.</p>"}
     <p style="color:var(--muted);font-size:.78rem;margin-top:10px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}).</p>`;
+}
+
+function buildMomentEmailSection(report, contentId) {
+  const tone = getOfficialGradeTone(report.grade);
+  const comparisons = getMomentComparisonRows(report);
+  const partialScores = report.partialReports.map(partial => `
+    <td style="padding:10px;border:1px solid #d1d5db;text-align:center;">
+      <strong>${h(getMomentSourcePartialLabel(partial.parcial))}</strong><br>
+      ${partial.grade === null ? "Pendiente" : `${partial.grade.toFixed(1)} / 10 (${h(gradeNumberInSpanish(partial.grade))})`}
+    </td>`).join("");
+  const comparisonRows = comparisons.map(item => {
+    const changeColor = item.change === "Mejoró" ? "#15803d" : item.change === "Empeoró" ? "#c2410c" : "#64748b";
+    const scores = item.grades.map(grade => `<td style="padding:7px;border:1px solid #ddd;text-align:center;">${grade === null ? "—" : grade.toFixed(1)}</td>`).join("");
+    const delta = item.delta === null ? "—" : `${item.delta > 0 ? "+" : ""}${item.delta.toFixed(1)}`;
+    return `<tr><td style="padding:7px;border:1px solid #ddd;">${h(item.name)}</td>${scores}<td style="padding:7px;border:1px solid #ddd;color:${changeColor};font-weight:bold;">${delta} · ${h(item.change)}</td></tr>`;
+  }).join("");
+  const headers = report.partialReports.map(partial => `<th style="padding:7px;border:1px solid #ddd;">${h(getMomentSourcePartialLabel(partial.parcial))}</th>`).join("");
+  const chart = report.chartData
+    ? `<img src="cid:${contentId}" alt="Comparación de rubros de ${h(report.momentLabel)}" style="display:block;width:100%;max-width:680px;margin:18px auto;">`
+    : `<p>No hay parciales asignados a ${h(report.momentLabel)}.</p>`;
+  const average = report.average === null ? "Pendiente" : `${report.average.toFixed(2)} / 10`;
+  return `<section style="margin:18px 0;padding:14px;border:1px solid #d1d5db;border-radius:8px;">
+    <h3>${h(report.momentLabel)}</h3>
+    ${report.partialReports.length ? `<table style="width:100%;border-collapse:collapse;"><tr>${partialScores}<td style="padding:10px;border:1px solid #d1d5db;text-align:center;">
+      Promedio del momento<br><strong>${average}</strong><br>
+      Calificación oficial<br><strong style="font-size:25px;color:${tone.foreground};background:${tone.background};padding:4px 9px;border-radius:6px;">${report.grade === null ? "Pendiente" : `${report.grade} / 10`}</strong>
+      <br><strong>${h(report.grade === null ? tone.label : gradeNumberInSpanish(report.grade))}</strong>
+    </td></tr></table>
+    <p>Umbral de redondeo docente: ${report.threshold.toFixed(1)}. No eleva calificaciones reprobatorias a 6.</p>
+    ${chart}
+    <p style="font-size:12px;"><strong>Colores:</strong> verde = mejoró · naranja = empeoró · gris = sin cambio o sin datos suficientes.</p>
+    <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="padding:7px;border:1px solid #ddd;">Rubro</th>${headers}<th style="padding:7px;border:1px solid #ddd;">Cambio</th></tr></thead><tbody>${comparisonRows}</tbody></table>` : chart}
+  </section>`;
 }
 
 // ════════════════════════════════════════
@@ -3045,12 +3412,40 @@ async function sendBoletaReports() {
       toast(`Correo no válido para ${nombreListaAlumno(report.alumno)}. Corrige el correo antes de enviar.`, "warn");
       return;
     }
-    for (const item of report.items) {
+    const gradeItems = report.tipo === "promedio-momentos"
+      ? report.moments.flatMap(moment => moment.partialReports.flatMap(partial =>
+        partial.items.map(item => ({ ...item, parcial: partial.parcial, momentLabel: moment.momentLabel }))))
+      : report.tipo === "momento"
+        ? report.partialReports.flatMap(partial => partial.items.map(item => ({ ...item, parcial: partial.parcial })))
+        : report.items;
+    for (const item of gradeItems) {
       const value = item.Calificacion;
       if (value !== "" && value !== null && value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 10)) {
-        toast(`Revisa la calificación de ${item.Criterio} para ${nombreListaAlumno(report.alumno)}; debe estar entre 0 y 10.`, "warn");
+        toast(`Revisa la calificación de ${item.Criterio} para ${nombreListaAlumno(report.alumno)}${item.parcial ? ` en ${getMomentSourcePartialLabel(item.parcial)}${item.momentLabel ? ` (${item.momentLabel})` : ""}` : ""}; debe estar entre 0 y 10.`, "warn");
         return;
       }
+    }
+    let chartData = "";
+    try {
+      if (report.tipo === "promedio-momentos") {
+        report.moments.forEach(moment => {
+          moment.chartData = moment.partialReports.length ? getBoletaEmailChartData(moment) : "";
+        });
+        report.chartAttachments = report.moments.map((moment, index) => moment.chartData ? ({
+          contentId: `report-chart-${index + 1}`,
+          data: moment.chartData
+        }) : null).filter(Boolean);
+        chartData = report.chartAttachments[0]?.data || "";
+      } else {
+        chartData = getBoletaEmailChartData(report);
+      }
+    } catch (error) {
+      toast(`No se pudo generar la gráfica para ${nombreListaAlumno(report.alumno)}: ${error.message}`, "err");
+      return;
+    }
+    if (!chartData) {
+      toast("No se pudo generar la gráfica del reporte. Verifica que Chart.js esté disponible antes de enviar.", "err");
+      return;
     }
   }
   if (window.location.protocol === "file:") {
@@ -3108,6 +3503,8 @@ async function sendBoletaReports() {
 }
 
 function buildIndividualReportEmail(recipients) {
+  if (activeIndividualReport.tipo === "promedio-momentos") return buildAllMomentsReportEmail(recipients);
+  if (activeIndividualReport.tipo === "momento") return buildMomentReportEmail(recipients);
   const { alumno, parcial, clase, items, comentarioParcial } = activeIndividualReport;
   const criterionList = (parcial?.Criterios || []).map(criterion => {
     const record = items.find(item => item.Criterio === criterion.nombre);
@@ -3131,7 +3528,8 @@ function buildIndividualReportEmail(recipients) {
     ...criterionList.filter(criterion => criterion.record?.Observaciones).map(criterion => `<p><strong>${h(criterion.name)} · Observación:</strong> ${h(criterion.record.Observaciones)}</p>`)
   ].filter(Boolean).join("");
   const exam = criterionList.find(criterion => /examen/i.test(criterion.name));
-  const chartImage = reportChartInstance ? `<img src="cid:report-chart" alt="Desempeño del alumno en todos los criterios del parcial" style="display:block;width:100%;max-width:620px;margin:20px auto;">` : "";
+  const chartData = activeIndividualReport.chartData || reportChartInstance?.toBase64Image().split(",")[1] || "";
+  const chartImage = chartData ? `<img src="cid:report-chart" alt="Desempeño del alumno en todos los criterios del parcial" style="display:block;width:100%;max-width:620px;margin:20px auto;">` : "";
   const evidenceGallery = renderEvidenceGallery(criterionList);
   const periodLabel = getPeriodLabel(parcial);
   const teacherCopy = getTeacherCopy(recipients);
@@ -3144,7 +3542,6 @@ function buildIndividualReportEmail(recipients) {
     <p style="color:#687078;font-size:12px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}). Destinatarios: ${h(recipients.join(", "))}${teacherCopy ? ` · Copia al docente: ${h(teacherCopy)}` : ""}</p>
   </div>`;
   const boundary = `madero_${Date.now()}`;
-  const chartData = reportChartInstance?.toBase64Image().split(",")[1] || "";
   const parts = [
     `To: ${recipients.join(", ")}`,
     `Subject: =?UTF-8?B?${encodeBase64Utf8(`Reporte individual - ${alumno.Nombre || "Alumno"} - ${alumno.Grado || ""} ${alumno.Grupo || ""} - ${getPeriodLabel(parcial)} - ${clase}`)}?=`,
@@ -3159,6 +3556,119 @@ function buildIndividualReportEmail(recipients) {
   ];
   if (teacherCopy) parts.splice(1, 0, `Cc: ${teacherCopy}`);
   if (chartData) parts.push(`--${boundary}`, "Content-Type: image/png", "Content-Transfer-Encoding: base64", "Content-ID: <report-chart>", "Content-Disposition: inline; filename=calificaciones.png", "", chartData);
+  parts.push(`--${boundary}--`, "");
+  return parts.join("\r\n");
+}
+
+function buildMomentReportEmail(recipients) {
+  const report = activeIndividualReport;
+  const { alumno, clase, momentLabel, partialReports, average, grade, threshold } = report;
+  const comparisons = getMomentComparisonRows(report);
+  const tone = getOfficialGradeTone(grade);
+  const chartData = getBoletaEmailChartData(report);
+  const chartImage = chartData ? `<img src="cid:report-chart" alt="Comparación de calificaciones por rubro" style="display:block;width:100%;max-width:680px;margin:18px auto;">` : "";
+  const cards = partialReports.map(partial => {
+    const partialTone = getOfficialGradeTone(partial.grade);
+    return `<td style="padding:14px;border:1px solid #d1d5db;text-align:center;background:${partialTone.background};">
+      <div>${h(getMomentSourcePartialLabel(partial.parcial))}</div>
+      <strong style="display:block;font-size:24px;color:${partialTone.foreground};">${partial.grade === null ? "Pendiente" : `${partial.grade.toFixed(1)} / 10`}</strong>
+      <span>${partial.grade === null ? "" : h(gradeNumberInSpanish(partial.grade))}</span>
+    </td>`;
+  }).join("");
+  const avgText = average === null ? "Pendiente" : `${average.toFixed(2)} / 10`;
+  const gradeText = grade === null ? "Pendiente" : `${grade} / 10`;
+  const rows = comparisons.map(item => {
+    const color = item.change === "Mejoró" ? "#15803d" : item.change === "Empeoró" ? "#c2410c" : "#64748b";
+    const grades = item.grades.map(value => `<td style="padding:7px;border:1px solid #ddd;text-align:center;">${value === null ? "—" : value.toFixed(1)}</td>`).join("");
+    const delta = item.delta === null ? "—" : `${item.delta > 0 ? "+" : ""}${item.delta.toFixed(1)}`;
+    return `<tr><td style="padding:7px;border:1px solid #ddd;">${h(item.name)}</td>${grades}<td style="padding:7px;border:1px solid #ddd;color:${color};font-weight:bold;">${delta} · ${h(item.change)}</td></tr>`;
+  }).join("");
+  const headers = partialReports.map(partial => `<th style="padding:7px;border:1px solid #ddd;">${h(getMomentSourcePartialLabel(partial.parcial))}</th>`).join("");
+  const teacherCopy = getTeacherCopy(recipients);
+  const html = `<div style="font-family:Arial,sans-serif;color:#17202a;max-width:720px;margin:auto;">
+    <h1>Reporte individual del momento</h1>
+    <p><strong>${h(alumno.Nombre || "Alumno")}</strong> · Grado ${h(alumno.Grado || "—")} · Grupo ${h(alumno.Grupo || "—")} · Matrícula ${h(alumno.Matricula || alumno.id)}</p>
+    <h2>${h(clase)} · ${h(momentLabel)}</h2>
+    <p>La calificación del momento se obtiene promediando los parciales asignados: ${partialReports.map(partial => h(getMomentSourcePartialLabel(partial.parcial))).join(" y ")}.</p>
+    <table style="width:100%;border-collapse:collapse;"><tr>${cards}<td style="padding:14px;border:2px solid ${tone.foreground};text-align:center;background:${tone.background};">
+      <div>Promedio matemático del momento</div><strong style="display:block;font-size:21px;">${avgText}</strong>
+      <div style="margin-top:8px;">Calificación del momento</div><strong style="display:block;font-size:32px;color:${tone.foreground};">${gradeText}</strong>
+      <span style="font-weight:bold;">${h(grade === null ? tone.label : gradeNumberInSpanish(grade))}</span>
+    </td></tr></table>
+    <p><strong>Redondeo docente:</strong> ${threshold.toFixed(1)}. En calificaciones reprobatorias no se aplica el umbral para subir a 6.</p>
+    ${chartImage}
+    <p style="font-size:12px;"><strong>Colores de la gráfica:</strong> <span style="color:#15803d;">verde = mejoró</span> · <span style="color:#c2410c;">naranja = empeoró</span> · gris = sin cambio o sin datos suficientes.</p>
+    <h2>Comparación por rubro</h2>
+    <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="padding:7px;border:1px solid #ddd;">Rubro</th>${headers}<th style="padding:7px;border:1px solid #ddd;">Cambio (primer a último parcial)</th></tr></thead><tbody>${rows || `<tr><td colspan="${partialReports.length + 2}">Sin rubros para comparar.</td></tr>`}</tbody></table>
+    <p style="color:#687078;font-size:12px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}). Destinatarios: ${h(recipients.join(", "))}${teacherCopy ? ` · Copia al docente: ${h(teacherCopy)}` : ""}</p>
+  </div>`;
+  const boundary = `madero_${Date.now()}`;
+  const parts = [
+    `To: ${recipients.join(", ")}`,
+    `Subject: =?UTF-8?B?${encodeBase64Utf8(`Reporte individual - ${alumno.Nombre || "Alumno"} - ${momentLabel} - ${clase}`)}?=`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/related; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    encodeBase64Utf8(html)
+  ];
+  if (teacherCopy) parts.splice(1, 0, `Cc: ${teacherCopy}`);
+  if (chartData) parts.push(`--${boundary}`, "Content-Type: image/png", "Content-Transfer-Encoding: base64", "Content-ID: <report-chart>", "Content-Disposition: inline; filename=comparacion-rubros.png", "", chartData);
+  parts.push(`--${boundary}--`, "");
+  return parts.join("\r\n");
+}
+
+function buildAllMomentsReportEmail(recipients) {
+  const report = activeIndividualReport;
+  const { alumno, clase, moments, finalGrade } = report;
+  const finalTone = getOfficialGradeTone(finalGrade);
+  const finalText = finalGrade === null
+    ? "Pendiente"
+    : `${finalGrade} / 10 · ${gradeNumberInSpanish(finalGrade)}`;
+  const sections = moments.map((moment, index) =>
+    buildMomentEmailSection(moment, `report-chart-${index + 1}`)
+  ).join("");
+  const teacherCopy = getTeacherCopy(recipients);
+  const html = `<div style="font-family:Arial,sans-serif;color:#17202a;max-width:760px;margin:auto;">
+    <h1>Reporte individual · Promedio de los momentos</h1>
+    <p><strong>${h(alumno.Nombre || "Alumno")}</strong> · Grado ${h(alumno.Grado || "—")} · Grupo ${h(alumno.Grupo || "—")} · Matrícula ${h(alumno.Matricula || alumno.id)}</p>
+    <h2>${h(clase)}</h2>
+    <p>Los promedios se calculan con los parciales seleccionados en Administrar momentos. El número del parcial no determina a qué momento pertenece.</p>
+    <div style="padding:14px;text-align:center;border:2px solid ${finalTone.foreground};background:${finalTone.background};border-radius:8px;">
+      <strong style="font-size:14px;">Promedio final de los momentos</strong><br>
+      <strong style="font-size:32px;color:${finalTone.foreground};">${h(finalText)}</strong>
+    </div>
+    ${sections}
+    <p style="color:#687078;font-size:12px;">Enviado por ${h(docenteData.Nombre || "Docente")} (${h(docenteData.Correo || "")}). Destinatarios: ${h(recipients.join(", "))}${teacherCopy ? ` · Copia al docente: ${h(teacherCopy)}` : ""}</p>
+  </div>`;
+  const boundary = `madero_${Date.now()}`;
+  const parts = [
+    `To: ${recipients.join(", ")}`,
+    `Subject: =?UTF-8?B?${encodeBase64Utf8(`Reporte individual - ${alumno.Nombre || "Alumno"} - Promedio de los momentos - ${clase}`)}?=`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/related; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    encodeBase64Utf8(html)
+  ];
+  if (teacherCopy) parts.splice(1, 0, `Cc: ${teacherCopy}`);
+  (report.chartAttachments || []).forEach(attachment => {
+    parts.push(
+      `--${boundary}`,
+      "Content-Type: image/png",
+      "Content-Transfer-Encoding: base64",
+      `Content-ID: <${attachment.contentId}>`,
+      `Content-Disposition: inline; filename=${attachment.contentId}.png`,
+      "",
+      attachment.data
+    );
+  });
   parts.push(`--${boundary}--`, "");
   return parts.join("\r\n");
 }
