@@ -205,11 +205,23 @@
     /* ─── TABLE ─── */
     .table-wrap { overflow-x:auto; }
     table.tbl { width:100%; border-collapse:collapse; font-size:0.875rem; }
-      .report-grid { display:grid; grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr); gap:20px; align-items:center; }
-      .report-grid > * { min-width:0; }
+    .report-grid { display:grid; grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr); gap:20px; align-items:center; }
+    .report-grid > * { min-width:0; }
     #modal-reporte .table-wrap { min-width:0; overflow-x:hidden; }
     #modal-reporte table.tbl { table-layout:fixed; min-width:0; font-size:0.78rem; }
     #modal-reporte table.tbl th, #modal-reporte table.tbl td { padding:7px 5px; white-space:normal; overflow-wrap:anywhere; }
+    .individual-report-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(175px,1fr)); gap:12px; margin-top:12px; }
+    .individual-report-tile { min-height:88px; padding:14px; border:1px solid var(--border); border-left:5px solid var(--tile-color); border-radius:12px; background:linear-gradient(135deg,var(--tile-tint),#fff 78%); color:var(--text); text-align:left; cursor:pointer; font:inherit; transition:transform .16s,box-shadow .16s; }
+    .individual-report-tile:hover, .individual-report-tile:focus-visible { transform:translateY(-2px); box-shadow:0 6px 16px rgba(15,23,42,.12); outline:2px solid var(--tile-color); outline-offset:2px; }
+    .individual-report-tile strong { display:block; font-size:.91rem; line-height:1.35; }
+    .individual-report-tile small { display:block; margin-top:6px; color:var(--muted); font-size:.76rem; font-style:italic; }
+    .report-color-0 { --tile-color:#4f46e5; --tile-tint:#eef2ff; }
+    .report-color-1 { --tile-color:#0d9488; --tile-tint:#ccfbf1; }
+    .report-color-2 { --tile-color:#d97706; --tile-tint:#fef3c7; }
+    .report-color-3 { --tile-color:#db2777; --tile-tint:#fce7f3; }
+    .report-color-4 { --tile-color:#2563eb; --tile-tint:#dbeafe; }
+    .report-color-5 { --tile-color:#7c3aed; --tile-tint:#ede9fe; }
+    #report-moment-details { padding:14px; border:1px solid var(--border); border-radius:10px; background:#fff; }
     .availability-table-wrap { overflow-x:auto; }
     .availability-table { border-collapse:collapse; min-width:900px; width:100%; font-size:.75rem; }
     .availability-table th, .availability-table td { border:1px solid var(--border); padding:7px 5px; text-align:center; }
@@ -928,25 +940,28 @@
     </div>
     <div class="modal-body">
       <div id="report-student-heading" style="font-weight:800; margin-bottom:12px;"></div>
-      <div class="report-grid">
-        <div><div style="height:230px; position:relative;"><canvas id="report-chart" aria-label="Calificaciones de todos los criterios de 0 a 10"></canvas></div><div id="report-exam-summary" style="text-align:center;font-size:.85rem;font-weight:700;color:var(--muted);"></div></div>
-        <div>
-          <div id="report-total" style="font-size:1.1rem; font-weight:800; margin-bottom:10px;"></div>
-          <div id="report-level" style="font-weight:800;margin-bottom:10px;"></div>
-          <div class="table-wrap"><table class="tbl"><thead><tr><th>Criterio</th><th>Peso</th><th>Nota</th><th>Aporta</th></tr></thead><tbody id="report-criteria"></tbody></table></div>
+      <div id="report-partial-details">
+        <div class="report-grid">
+          <div><div style="height:230px; position:relative;"><canvas id="report-chart" aria-label="Calificaciones de todos los criterios de 0 a 10"></canvas></div><div id="report-exam-summary" style="text-align:center;font-size:.85rem;font-weight:700;color:var(--muted);"></div></div>
+          <div>
+            <div id="report-total" style="font-size:1.1rem; font-weight:800; margin-bottom:10px;"></div>
+            <div id="report-level" style="font-weight:800;margin-bottom:10px;"></div>
+            <div class="table-wrap"><table class="tbl"><thead><tr><th>Criterio</th><th>Peso</th><th>Nota</th><th>Aporta</th></tr></thead><tbody id="report-criteria"></tbody></table></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:.76rem;">
+          <span style="color:#dc2626;font-weight:700;">&lt; 6 Deficiente</span><span style="color:#b45309;font-weight:700;">6–6.9 Necesita apoyo</span><span style="color:#15803d;font-weight:700;">7–7.9 Puede mejorar</span><span style="color:#0f766e;font-weight:700;">8–8.9 Eficiente</span><span style="color:#2563eb;font-weight:700;">9–9.9 Bueno</span><span style="color:#7c3aed;font-weight:700;">10 Excelente</span>
+        </div>
+        <div class="fgroup" style="margin-top:16px;">
+          <label>Comentario general del parcial y observaciones por criterio</label>
+          <div id="report-comments" style="padding:10px; background:#f8fafc; border-radius:8px;"></div>
+        </div>
+        <div class="fgroup" style="margin-top:12px;">
+          <label>Evidencias por criterio</label>
+          <div id="report-evidence" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;"></div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:.76rem;">
-        <span style="color:#dc2626;font-weight:700;">&lt; 6 Deficiente</span><span style="color:#b45309;font-weight:700;">6–6.9 Necesita apoyo</span><span style="color:#15803d;font-weight:700;">7–7.9 Puede mejorar</span><span style="color:#0f766e;font-weight:700;">8–8.9 Eficiente</span><span style="color:#2563eb;font-weight:700;">9–9.9 Bueno</span><span style="color:#7c3aed;font-weight:700;">10 Excelente</span>
-      </div>
-      <div class="fgroup" style="margin-top:16px;">
-        <label>Comentario general del parcial y observaciones por criterio</label>
-        <div id="report-comments" style="padding:10px; background:#f8fafc; border-radius:8px;"></div>
-      </div>
-      <div class="fgroup" style="margin-top:12px;">
-        <label>Evidencias por criterio</label>
-        <div id="report-evidence" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;"></div>
-      </div>
+      <div id="report-moment-details" hidden></div>
       <hr style="border:0; border-top:1px solid var(--border); margin:16px 0;">
       <div class="fgroup">
         <label for="report-recipient-mode">Enviar a</label>
@@ -992,7 +1007,7 @@
         <label for="google-oauth-client-id">ID de cliente OAuth para Gmail</label>
         <input class="finput" id="google-oauth-client-id" type="text" placeholder="123456789.apps.googleusercontent.com" autocomplete="off">
       </div>
-      <p style="font-size:0.8rem; color:var(--muted);">Se guarda únicamente en este navegador. Al enviar, cada docente autoriza su propia cuenta de Google.</p>
+      <p style="font-size:0.8rem; color:var(--muted);">Si administración asignó el ID a tu perfil, se carga automáticamente al iniciar sesión. Si lo configuras aquí, solo se guardará en este navegador. El ID es público; al enviar, cada docente autoriza su propia cuenta de Google.</p>
     </div>
     <div class="modal-foot">
       <button class="btn btn-gray" onclick="closeModal('modal-google-oauth')">Cancelar</button>
@@ -1345,6 +1360,12 @@ async function loadDocente() {
     const snap = await db.collection("Usuarios").doc(DOCENTE_ID).get();
     if (!snap.exists) { toast("No se encontró el perfil del docente.", "err"); return; }
     docenteData = snap.data();
+    const assignedOAuthClientId = String(docenteData.GmailOAuthClientId || "").trim();
+    if (assignedOAuthClientId && /^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.test(assignedOAuthClientId)) {
+      GOOGLE_OAUTH_CLIENT_ID = assignedOAuthClientId;
+    } else if (assignedOAuthClientId) {
+      toast("El ID OAuth asignado por administración no es válido; se usará la configuración local si existe.", "warn");
+    }
     momentConfiguration = normalizeMomentConfigurations(docenteData.Momentos);
     const nombre = docenteData.Nombre || "Docente";
     const correo = docenteData.Correo || "—";
@@ -3131,9 +3152,16 @@ async function buscarAlumno() {
     if (!Object.keys(grouped).length) {
       calHtml = `<p style="color:var(--muted); font-size:0.88rem;">Sin calificaciones registradas aún.</p>`;
     } else {
-      for (const g of Object.values(grouped)) {
+      const tiles = [];
+      const groups = Object.values(grouped).sort((a, b) =>
+        String(a.clase).localeCompare(String(b.clase), "es") ||
+        Number(cacheParciales.find(item => item.id === a.parcial)?.Numero || 0) - Number(cacheParciales.find(item => item.id === b.parcial)?.Numero || 0)
+      );
+      const classColors = new Map([...new Set(groups.map(group => group.clase))].map((clase, index) => [clase, index % 6]));
+      let tileIndex = 0;
+      for (const g of groups) {
         const par = cacheParciales.find(p => p.id === g.parcial);
-        const reportKey = `reporte-${Object.keys(individualReports).length}`;
+        const reportKey = `reporte-${tileIndex++}`;
         const commentSnap = await db.collection("ComentariosParciales").doc(partialCommentDocId(g.parcial, mat)).get();
         const comentarioParcial = commentSnap.exists
           ? commentSnap.data().Comentario || ""
@@ -3152,35 +3180,38 @@ async function buscarAlumno() {
         const capturedWeight = criteria.reduce((sum, criterion) => sum + (criterion.grade === null ? 0 : criterion.percentage), 0);
         const assignedWeight = criteria.reduce((sum, criterion) => sum + criterion.percentage, 0);
         const complete = assignedWeight === 100 && capturedWeight === assignedWeight;
-        calHtml += `
-          <div style="margin-bottom:1rem;">
-            <div class="section-h" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-              <span>${h(g.clase)} — ${h(getPeriodLabel(par))}</span>
-              <button class="btn btn-indigo" onclick="openIndividualReport('${reportKey}')">Generar reporte individual</button>
-            </div>
-            <table class="tbl" style="margin-top:6px;">
-              <thead><tr><th>Criterio</th><th>Peso</th><th>Calificación</th><th>Aporta</th><th>Observación y evidencia</th></tr></thead>
-              <tbody>
-                ${criteria.map(criterion=>{
-                  const band = getGradeBand(criterion.grade);
-                  const contribution = criterion.grade === null ? "—" : (criterion.grade * criterion.percentage / 100).toFixed(2);
-                  const evidence = renderEvidenceLinks(criterion.record?.Evidencias || []);
-                  return `<tr>
-                  <td><span class="chip chip-indigo">${h(criterion.name)}</span></td>
-                  <td>${criterion.percentage}%</td>
-                  <td><strong style="color:${band.color};">${criterion.grade === null ? "Pendiente" : criterion.grade.toFixed(1)}</strong></td>
-                  <td>${contribution}</td>
-                  <td style="font-size:0.82rem;">${h(criterion.record?.Observaciones||"—")}${evidence ? `<br>${evidence}` : ""}</td>
-                </tr>`;}).join("")}
-                <tr style="background:#f9fafb;">
-                  <td colspan="3"><strong>${complete ? "Calificación ponderada" : "Avance ponderado"}</strong></td>
-                  <td colspan="2"><strong style="color:${getGradeBand(weightedGrade).color};">${weightedGrade.toFixed(2)} / 10${complete ? "" : ` · Capturado ${capturedWeight}% de ${assignedWeight}%`}</strong></td>
-                </tr>
-              </tbody>
-            </table>
-            <p style="margin:8px 0;color:var(--muted);font-size:.86rem;"><strong>Comentario general:</strong> ${h(comentarioParcial || "Sin comentario general registrado.")}</p>
-          </div>`;
+        tiles.push(`<button type="button" class="individual-report-tile report-color-${classColors.get(g.clase)}" onclick="openIndividualReport('${reportKey}')">
+          <strong>${h(g.clase)}</strong><small>${h(getPeriodLabel(par))}</small>
+          <small>${complete ? `Calificación ${weightedGrade.toFixed(2)} / 10` : `Avance ${capturedWeight}%`}</small>
+        </button>`);
       }
+
+      const classesWithGrades = [...new Set(groups.map(group => group.clase))];
+      for (const clase of classesWithGrades) {
+        const config = getMomentConfiguration(clase);
+        for (let momentIndex = 0; momentIndex < 3; momentIndex++) {
+          const configuredPartialIds = config.parciales[momentIndex].filter(id =>
+            cacheParciales.some(partial => partial.id === id && partial.Clase === clase)
+          );
+          if (!configuredPartialIds.length) continue;
+          const details = getMomentStudentDetails(mat, clase, momentIndex, cals);
+          if (!details.partialReports.length) continue;
+          const reportKey = `reporte-${tileIndex++}`;
+          individualReports[reportKey] = {
+            tipo: "momento",
+            alumno,
+            clase,
+            momentIndex,
+            momentLabel: `Momento ${momentIndex + 1}`,
+            ...details
+          };
+          tiles.push(`<button type="button" class="individual-report-tile report-color-${classColors.get(clase)}" onclick="openIndividualMomentReport('${reportKey}')">
+            <strong>${h(clase)}</strong><small>${h(`Momento ${momentIndex + 1}`)}</small>
+            <small>${details.grade === null ? "Promedio pendiente" : `Calificación ${details.grade} / 10`}</small>
+          </button>`);
+        }
+      }
+      calHtml = `<div class="individual-report-grid">${tiles.join("")}</div>`;
     }
 
     result.innerHTML = `
@@ -3193,7 +3224,7 @@ async function buscarAlumno() {
           <span class="profile-chip">Grupo ${alumno.Grupo||"—"}</span>
         </div>
       </div>
-      <div class="section-h">Historial de Calificaciones</div>
+      <div class="section-h">Historial de Calificaciones · Selecciona una tarjeta para abrir y enviar el reporte</div>
       ${calHtml}`;
 
   } catch(e) { toast("Error: " + e.message, "err"); result.innerHTML = `<div class="empty-state"><div class="em-icon">❌</div><p>${e.message}</p></div>`; }
@@ -3202,6 +3233,8 @@ async function buscarAlumno() {
 function openIndividualReport(reportKey) {
   activeIndividualReport = individualReports[reportKey];
   if (!activeIndividualReport) return;
+  document.getElementById("report-partial-details").hidden = false;
+  document.getElementById("report-moment-details").hidden = true;
   const { alumno, parcial, clase, items, comentarioParcial } = activeIndividualReport;
   const criteria = (parcial?.Criterios || []).map(criterion => {
     const gradeRecord = items.find(item => item.Criterio === criterion.nombre);
@@ -3332,6 +3365,58 @@ function openIndividualReport(reportKey) {
   } else {
     if (!window.Chart) examSummary.textContent += " · No se pudo cargar la gráfica.";
   }
+  openModal("modal-reporte");
+}
+
+function openIndividualMomentReport(reportKey) {
+  activeIndividualReport = individualReports[reportKey];
+  if (!activeIndividualReport || activeIndividualReport.tipo !== "momento") return;
+  const report = activeIndividualReport;
+  const { alumno, clase, momentLabel, partialReports, average, grade, threshold } = report;
+  const tone = getOfficialGradeTone(grade);
+  const comparisons = getMomentComparisonRows(report);
+  const chartData = getBoletaEmailChartData(report);
+  const partialCards = partialReports.map(partial => {
+    const partialTone = getOfficialGradeTone(partial.grade);
+    return `<div style="padding:10px;border-radius:8px;background:${partialTone.background};color:${partialTone.foreground};text-align:center;">
+      <strong>${h(getMomentSourcePartialLabel(partial.parcial))}</strong><br>
+      ${partial.grade === null ? "Pendiente" : `${partial.grade.toFixed(1)} / 10`}
+    </div>`;
+  }).join("");
+  const comparisonRows = comparisons.map(item => {
+    const changeColor = item.change === "Mejoró" ? "#15803d" : item.change === "Empeoró" ? "#c2410c" : "#64748b";
+    const scores = item.grades.map(value => `<td>${value === null ? "—" : value.toFixed(1)}</td>`).join("");
+    const delta = item.delta === null ? "—" : `${item.delta > 0 ? "+" : ""}${item.delta.toFixed(1)}`;
+    return `<tr><td>${h(item.name)}</td>${scores}<td style="color:${changeColor};font-weight:700;">${delta} · ${h(item.change)}</td></tr>`;
+  }).join("");
+  const headers = partialReports.map(partial => `<th>${h(getMomentSourcePartialLabel(partial.parcial))}</th>`).join("");
+  const chart = chartData
+    ? `<img src="data:image/png;base64,${chartData}" alt="Comparación de rubros de ${h(momentLabel)}" style="display:block;width:100%;max-width:680px;margin:16px auto;">`
+    : `<p style="color:var(--muted);">No se pudo generar la gráfica de comparación.</p>`;
+  document.getElementById("report-partial-details").hidden = true;
+  const momentDetails = document.getElementById("report-moment-details");
+  momentDetails.hidden = false;
+  momentDetails.innerHTML = `<h3>${h(clase)} · ${h(momentLabel)}</h3>
+    <p style="margin:6px 0 12px;color:var(--muted);">Este reporte usa los parciales asignados a ${h(momentLabel)} en Administrar momentos.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:8px;">${partialCards}
+      <div style="padding:10px;border:2px solid ${tone.foreground};border-radius:8px;background:${tone.background};color:${tone.foreground};text-align:center;">
+        <strong>Calificación del momento</strong><br>${grade === null ? "Pendiente" : `${grade} / 10`}
+        <div style="font-size:.8rem;margin-top:3px;">Promedio ${average === null ? "pendiente" : average.toFixed(2)} · Umbral ${threshold.toFixed(1)}</div>
+      </div>
+    </div>${chart}
+    <div class="table-wrap"><table class="tbl"><thead><tr><th>Rubro</th>${headers}<th>Cambio</th></tr></thead><tbody>${comparisonRows || `<tr><td colspan="${partialReports.length + 2}">Sin rubros para comparar.</td></tr>`}</tbody></table></div>`;
+  document.getElementById("report-student-heading").textContent =
+    `${alumno.Nombre || "Alumno"} · Grado ${alumno.Grado || "—"} · Grupo ${alumno.Grupo || "—"} · ${clase} · ${momentLabel}`;
+  document.getElementById("report-recipient-mode").value = "student";
+  document.getElementById("report-advisor-email").value = "";
+  document.getElementById("report-advisor-assignment").textContent = "";
+  document.getElementById("report-parent-email").value = alumno.CorreoPadre || alumno.CorreoTutor || "";
+  document.getElementById("report-send-parent").checked = false;
+  document.getElementById("report-link-parent").checked = false;
+  updateReportRecipientFields();
+  loadAssignedAdvisorForReport(report);
+  if (reportChartInstance) reportChartInstance.destroy();
+  reportChartInstance = null;
   openModal("modal-reporte");
 }
 
@@ -3708,7 +3793,37 @@ function openReportEmail() {
   if (!activeIndividualReport) return;
   const recipients = getReportRecipients();
   if (!recipients) return;
-  const { alumno, parcial, clase, items } = activeIndividualReport;
+  const { alumno, parcial, clase, items, comentarioParcial } = activeIndividualReport;
+  if (activeIndividualReport.tipo === "momento") {
+    const report = activeIndividualReport;
+    const subject = `Reporte individual - ${alumno.Nombre || "Alumno"} - ${report.momentLabel} - ${clase}`;
+    const partialGrades = report.partialReports.map(item =>
+      `${getMomentSourcePartialLabel(item.parcial)}: ${item.grade === null ? "Pendiente" : `${item.grade.toFixed(1)} / 10`}`
+    );
+    const comparisons = getMomentComparisonRows(report).map(item =>
+      `${item.name}: ${item.grades.map((grade, index) => `${getMomentSourcePartialLabel(report.partialReports[index].parcial)} ${grade === null ? "—" : grade.toFixed(1)}`).join(" · ")} · ${item.change}`
+    );
+    const body = [
+      "Reporte individual del momento",
+      `Alumno: ${alumno.Nombre || "Alumno"}`,
+      `Grado: ${alumno.Grado || "—"} · Grupo: ${alumno.Grupo || "—"}`,
+      `Materia: ${clase} · ${report.momentLabel}`,
+      `Promedio: ${report.average === null ? "Pendiente" : `${report.average.toFixed(2)} / 10`}`,
+      `Calificación del momento: ${report.grade === null ? "Pendiente" : `${report.grade} / 10`}`,
+      `Umbral de redondeo: ${report.threshold.toFixed(1)}`,
+      "",
+      "Parciales incluidos:",
+      ...partialGrades,
+      "",
+      "Comparación por rubro:",
+      ...(comparisons.length ? comparisons : ["Sin rubros para comparar."]),
+      "",
+      `Docente: ${docenteData.Nombre || "Docente"}`
+    ].join("\n");
+    const copy = getTeacherCopy(recipients);
+    window.location.href = `mailto:${encodeURIComponent(recipients.join(","))}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}${copy ? `&cc=${encodeURIComponent(copy)}` : ""}`;
+    return;
+  }
   const criteria = (parcial?.Criterios || []).map(criterion => {
     const gradeValue = items.find(item => item.Criterio === criterion.nombre)?.Calificacion;
     const parsedGrade = gradeValue === undefined || gradeValue === null || gradeValue === "" ? null : Number(gradeValue);

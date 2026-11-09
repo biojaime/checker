@@ -762,6 +762,29 @@
   </div>
 </div>
 
+<!-- ═══ MODAL: CONFIGURAR OAUTH DEL DOCENTE ═══ -->
+<div class="modal-bg" id="modal-docente-oauth">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Configurar Gmail — <span id="teacher-oauth-name"></span></h3>
+      <button class="modal-close" onclick="closeModal('modal-docente-oauth')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="teacher-oauth-id">
+      <div class="fgroup">
+        <label for="teacher-oauth-client-id">ID de cliente OAuth de Gmail</label>
+        <input class="finput" id="teacher-oauth-client-id" type="text" autocomplete="off" placeholder="123456789.apps.googleusercontent.com">
+      </div>
+      <p style="font-size:.82rem;color:var(--muted);margin-top:10px;">Este ID es público y no es una contraseña; se guarda en el perfil del docente para que esté disponible al cambiar de equipo. Cada docente sigue autorizando su propia cuenta de Google al enviar. No pegues aquí secretos ni tokens. Configura los orígenes permitidos en Google Cloud y restringe en las reglas de Firestore quién puede modificar este perfil.</p>
+      <p id="teacher-oauth-status" role="status" style="font-size:.82rem;color:var(--muted);margin-top:8px;"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-red" onclick="closeModal('modal-docente-oauth')">Cancelar</button>
+      <button class="btn btn-primary btn-lg" id="btn-save-teacher-oauth" type="button" onclick="saveTeacherOAuthClientId()">Guardar ID</button>
+    </div>
+  </div>
+</div>
+
 <script src="pwa.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -1123,10 +1146,65 @@ function renderDocentes() {
       <td style="max-width:220px;">${materiasHtml}</td>
       <td style="display:flex;gap:5px;">
         <button class="btn btn-purple" onclick="abrirMaterias('${d.id}','${h(d.Nombre)}')">📚 Materias</button>
+        <button class="btn btn-purple" type="button" data-teacher-oauth="${h(d.id)}" title="Configurar el ID de cliente OAuth de Gmail">${d.GmailOAuthClientId ? "Gmail ✓" : "Gmail OAuth"}</button>
         <button class="btn btn-red" onclick="darBaja('Usuarios','${d.id}')">✕ Baja</button>
       </td>
     </tr>`;
   }).join("");
+  tbody.querySelectorAll("[data-teacher-oauth]").forEach(button => {
+    button.addEventListener("click", () => openTeacherOAuthSetup(button.dataset.teacherOauth));
+  });
+}
+
+function openTeacherOAuthSetup(teacherId) {
+  const teacher = cacheDocentes.find(item => item.id === teacherId);
+  if (!teacher) {
+    toast("No se encontró el perfil del docente.", "err");
+    return;
+  }
+  document.getElementById("teacher-oauth-id").value = teacher.id;
+  document.getElementById("teacher-oauth-name").textContent = teacher.Nombre || teacher.id;
+  document.getElementById("teacher-oauth-client-id").value = teacher.GmailOAuthClientId || "";
+  document.getElementById("teacher-oauth-status").textContent = "";
+  openModal("modal-docente-oauth");
+}
+
+async function saveTeacherOAuthClientId() {
+  const teacherId = document.getElementById("teacher-oauth-id").value;
+  const clientId = document.getElementById("teacher-oauth-client-id").value.trim();
+  const button = document.getElementById("btn-save-teacher-oauth");
+  const status = document.getElementById("teacher-oauth-status");
+  if (clientId && !/^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.test(clientId)) {
+    toast("Escribe un ID de cliente OAuth web válido.", "warn");
+    return;
+  }
+  if (!teacherId) {
+    toast("No se encontró el docente que se va a actualizar.", "err");
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Guardando…";
+  try {
+    const updates = clientId
+      ? { GmailOAuthClientId: clientId }
+      : { GmailOAuthClientId: firebase.firestore.FieldValue.delete() };
+    await db.collection("Usuarios").doc(teacherId).update(updates);
+    const teacher = cacheDocentes.find(item => item.id === teacherId);
+    if (teacher) {
+      if (clientId) teacher.GmailOAuthClientId = clientId;
+      else delete teacher.GmailOAuthClientId;
+    }
+    renderDocentes();
+    status.textContent = clientId ? "ID de cliente guardado en el perfil del docente." : "Configuración OAuth eliminada.";
+    toast(clientId ? "ID de cliente OAuth guardado." : "Configuración OAuth eliminada.", "ok");
+    closeModal("modal-docente-oauth");
+  } catch (error) {
+    status.textContent = "No se pudo guardar la configuración.";
+    toast("Error al guardar el ID OAuth: " + error.message, "err");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Guardar ID";
+  }
 }
 
 document.querySelectorAll("[data-rol-filter]").forEach(btn => {
