@@ -62,14 +62,25 @@
       position:fixed; top:0; left:0; bottom:0; z-index:50;
       border-right:1px solid rgba(255,255,255,0.05);
       overflow-y:auto;
+      transition:width .28s ease, transform .28s ease;
     }
     .sidebar-logo {
       display:flex; align-items:center; gap:10px;
-      padding:1.3rem 1.3rem 1.1rem;
+      padding:1rem 1rem 0.9rem;
       border-bottom:1px solid rgba(255,255,255,0.06);
     }
     .sidebar-logo img { height:28px; filter:brightness(0) invert(1); }
     .sidebar-logo span { color:#fff; font-weight:800; font-size:0.95rem; }
+    .sidebar-brand { display:flex; align-items:center; gap:10px; min-width:0; flex:1; overflow:hidden; }
+    .sidebar-brand span { white-space:nowrap; }
+    .claw-toggle { display:inline-flex; align-items:center; justify-content:center; gap:7px; flex-shrink:0; padding:6px; border:1px solid rgba(249,115,22,.55); border-radius:11px; background:linear-gradient(135deg,#fff7ed,#ffedd5); color:#9a3412; cursor:pointer; transition:all .2s; }
+    .claw-toggle:hover { border-color:#f97316; box-shadow:0 4px 12px rgba(249,115,22,.22); }
+    .claw-toggle svg { width:22px; height:22px; fill:currentColor; }
+    @keyframes claw-swipe { 30% { transform:scale(1.12) rotate(-8deg); filter:drop-shadow(0 0 7px #f97316); } 65% { transform:scale(.96) rotate(5deg); } }
+    .claw-toggle:hover svg { animation:claw-swipe .42s ease-in-out; }
+    .sidebar-top-toggle { padding:7px 10px; font-size:.72rem; font-weight:800; }
+    .sidebar-expand-toggle { position:fixed; top:14px; left:14px; z-index:60; padding:9px 12px; box-shadow:0 8px 24px rgba(15,23,42,.22); }
+    .sidebar-expand-toggle[hidden] { display:none; }
 
     .sidebar-section { padding:1rem 0.85rem 0.4rem; }
     .sidebar-section-label {
@@ -130,7 +141,22 @@
     .btn-logout:hover { background:rgba(220,38,38,0.4); color:#fff; }
 
     /* ─── MAIN ─── */
-    .main { margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; min-height:100vh; }
+    .main { margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; min-height:100vh; transition:margin-left .28s ease; }
+    .shell.sidebar-collapsed .sidebar { width:76px; }
+    .shell.sidebar-collapsed .main { margin-left:76px; }
+    .shell.sidebar-collapsed .sidebar-logo { justify-content:center; padding:1rem .5rem; }
+    .shell.sidebar-collapsed .sidebar-brand { display:none; }
+    .shell.sidebar-collapsed .sidebar-section { padding:.85rem .55rem .4rem; }
+    .shell.sidebar-collapsed .sidebar-section-label,
+    .shell.sidebar-collapsed .nav-card-text,
+    .shell.sidebar-collapsed .teacher-name,
+    .shell.sidebar-collapsed .teacher-role { display:none; }
+    .shell.sidebar-collapsed .nav-card { justify-content:center; padding:.65rem .25rem; }
+    .shell.sidebar-collapsed .nav-icon { width:42px; height:42px; }
+    .shell.sidebar-collapsed .sidebar-footer { padding:.65rem .45rem; }
+    .shell.sidebar-collapsed .teacher-card { justify-content:center; padding:.45rem; }
+    .shell.sidebar-collapsed .btn-logout { overflow:hidden; height:38px; font-size:0; }
+    .shell.sidebar-collapsed .btn-logout::before { content:"↪"; font-size:1rem; }
     .topbar {
       background:#fff; padding:0.9rem 1.8rem;
       display:flex; align-items:center; justify-content:space-between;
@@ -210,17 +236,6 @@
     #modal-reporte .table-wrap { min-width:0; overflow-x:hidden; }
     #modal-reporte table.tbl { table-layout:fixed; min-width:0; font-size:0.78rem; }
     #modal-reporte table.tbl th, #modal-reporte table.tbl td { padding:7px 5px; white-space:normal; overflow-wrap:anywhere; }
-    .individual-report-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(175px,1fr)); gap:12px; margin-top:12px; }
-    .individual-report-tile { min-height:88px; padding:14px; border:1px solid var(--border); border-left:5px solid var(--tile-color); border-radius:12px; background:linear-gradient(135deg,var(--tile-tint),#fff 78%); color:var(--text); text-align:left; cursor:pointer; font:inherit; transition:transform .16s,box-shadow .16s; }
-    .individual-report-tile:hover, .individual-report-tile:focus-visible { transform:translateY(-2px); box-shadow:0 6px 16px rgba(15,23,42,.12); outline:2px solid var(--tile-color); outline-offset:2px; }
-    .individual-report-tile strong { display:block; font-size:.91rem; line-height:1.35; }
-    .individual-report-tile small { display:block; margin-top:6px; color:var(--muted); font-size:.76rem; font-style:italic; }
-    .report-color-0 { --tile-color:#4f46e5; --tile-tint:#eef2ff; }
-    .report-color-1 { --tile-color:#0d9488; --tile-tint:#ccfbf1; }
-    .report-color-2 { --tile-color:#d97706; --tile-tint:#fef3c7; }
-    .report-color-3 { --tile-color:#db2777; --tile-tint:#fce7f3; }
-    .report-color-4 { --tile-color:#2563eb; --tile-tint:#dbeafe; }
-    .report-color-5 { --tile-color:#7c3aed; --tile-tint:#ede9fe; }
     #report-moment-details { padding:14px; border:1px solid var(--border); border-radius:10px; background:#fff; }
     .availability-table-wrap { overflow-x:auto; }
     .availability-table { border-collapse:collapse; min-width:900px; width:100%; font-size:.75rem; }
@@ -396,17 +411,108 @@
     .moment-partial-option { display:flex; align-items:center; gap:8px; padding:8px; border-radius:8px; background:#f8fafc; font-size:.84rem; cursor:pointer; }
     .moment-partial-option input { accent-color:var(--indigo); }
     .moment-results-table { margin-top:14px; }
+    .home-insights-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr)); gap:16px; }
+    .home-insight-card { border:1px solid var(--border); border-top:4px solid var(--insight-color,#4f46e5); border-radius:14px; background:linear-gradient(145deg,var(--insight-tint,#eef2ff),#fff 42%); overflow:hidden; }
+    .home-insight-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:15px 16px 12px; }
+    .home-insight-head h3 { font-size:1rem; font-weight:800; }
+    .home-insight-head p { margin-top:4px; color:var(--muted); font-size:.76rem; }
+    .home-average { padding:8px 11px; background:#fff; border:1px solid var(--border); border-radius:10px; text-align:center; white-space:nowrap; }
+    .home-average small { display:block; font-size:.62rem; color:var(--muted); text-transform:uppercase; font-weight:800; }
+    .home-average strong { display:block; margin-top:2px; color:var(--insight-color,#4f46e5); font-size:1.16rem; }
+    .home-group-winner { margin:0 15px 12px; padding:10px 12px; border-radius:10px; background:#fff; border:1px solid var(--border); }
+    .home-group-winner small { display:block; color:var(--muted); font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.4px; }
+    .home-group-winner strong { display:block; margin-top:3px; font-size:.88rem; }
+    .home-ranking-columns { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 15px 15px; }
+    .home-ranking { min-width:0; padding:10px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.82); }
+    .home-ranking h4 { margin-bottom:7px; font-size:.7rem; font-weight:800; text-transform:uppercase; color:var(--muted); letter-spacing:.35px; }
+    .home-ranking ol { margin:0; padding-left:20px; font-size:.76rem; }
+    .home-ranking li { padding:3px 0; overflow-wrap:anywhere; }
+    .home-ranking li span { color:var(--muted); white-space:nowrap; }
+    .home-insight-empty { padding:0 16px 16px; color:var(--muted); font-size:.8rem; }
+    .home-salon-rankings { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr)); gap:10px; padding:0 15px 15px; }
+    .home-salon-rank-card { border:1px solid var(--border); border-radius:11px; background:rgba(255,255,255,.72); overflow:hidden; }
+    .home-salon-rank-head { display:flex; justify-content:space-between; gap:8px; padding:9px 11px; background:rgba(255,255,255,.72); border-bottom:1px solid var(--border); font-size:.76rem; font-weight:800; }
+    .home-salon-rank-head span { color:var(--insight-color,#4f46e5); white-space:nowrap; }
+    .home-salon-rank-card .home-ranking-columns { padding:9px; gap:8px; }
+    .subject-report-card { --subject-color:#4f46e5; --subject-tint:#eef2ff; margin-top:14px; overflow:hidden; border:1px solid var(--subject-tint); border-top:5px solid var(--subject-color); border-radius:16px; background:linear-gradient(150deg,var(--subject-tint),#fff 24%); box-shadow:0 8px 24px rgba(15,23,42,.045); }
+    .subject-report-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 18px; border-bottom:1px solid color-mix(in srgb,var(--subject-color) 16%,white); }
+    .subject-report-title { display:flex; align-items:center; gap:12px; min-width:0; }
+    .subject-report-icon { display:flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:12px; background:var(--subject-color); color:#fff; font-size:1.2rem; flex-shrink:0; }
+    .subject-report-title h3 { font-size:1rem; font-weight:800; overflow-wrap:anywhere; }
+    .subject-report-title p { margin-top:3px; color:var(--muted); font-size:.74rem; }
+    .subject-report-average { min-width:104px; padding:7px 10px; border:1px solid color-mix(in srgb,var(--subject-color) 22%,white); border-radius:10px; background:#fff; text-align:center; }
+    .subject-report-average small { display:block; color:var(--muted); font-size:.6rem; text-transform:uppercase; font-weight:800; }
+    .subject-report-average strong { color:var(--subject-color); font-size:1.05rem; }
+    .subject-report-body { padding:14px 18px 18px; }
+    .subject-report-section-title { display:flex; align-items:center; gap:10px; margin:4px 0 10px; color:#64748b; font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px; }
+    .subject-report-section-title::after { content:""; height:1px; flex:1; background:var(--border); }
+    .subject-evaluation-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:10px; margin-bottom:16px; }
+    .subject-evaluation-tile { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:78px; padding:11px 13px; border:1px solid var(--border); border-radius:12px; background:#fff; color:var(--text); text-align:left; font:inherit; cursor:pointer; transition:transform .16s,box-shadow .16s,border-color .16s; }
+    .subject-evaluation-tile:hover,.subject-evaluation-tile:focus-visible { transform:translateY(-2px); border-color:var(--subject-color); box-shadow:0 7px 16px rgba(15,23,42,.09); outline:2px solid color-mix(in srgb,var(--subject-color) 20%,white); }
+    .subject-evaluation-tile strong { display:block; font-size:.87rem; }
+    .subject-evaluation-tile small { display:block; margin-top:4px; color:var(--muted); font-size:.7rem; }
+    .subject-evaluation-grade { padding:5px 8px; border-radius:8px; background:var(--subject-tint); color:var(--subject-color); font-weight:800; white-space:nowrap; }
+    .subject-moment-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,185px),1fr)); gap:10px; }
+    .subject-moment-tile { display:flex; flex-direction:column; align-items:stretch; min-height:120px; padding:11px 13px; border:1px solid var(--border); border-radius:12px; background:linear-gradient(145deg,#fff,#f8fafc); color:var(--text); text-align:left; font:inherit; cursor:pointer; transition:transform .16s,box-shadow .16s,border-color .16s; }
+    .subject-moment-tile:hover,.subject-moment-tile:focus-visible { transform:translateY(-2px); border-color:var(--subject-color); box-shadow:0 7px 16px rgba(15,23,42,.09); outline:2px solid color-mix(in srgb,var(--subject-color) 20%,white); }
+    .subject-moment-tile > span:first-child { align-self:flex-start; padding:4px 8px; border-radius:7px; background:var(--subject-tint); color:var(--subject-color); font-size:.67rem; font-weight:800; }
+    .subject-moment-tile strong { margin-top:10px; font-size:1.1rem; }
+    .subject-moment-tile small { margin-top:auto; padding-top:7px; color:var(--muted); font-size:.68rem; }
+    .subject-report-empty { padding:8px 0 2px; color:var(--muted); font-size:.78rem; }
+    .sidebar-backdrop { display:none; }
+    @media (max-width:760px) {
+      .sidebar { transform:translateX(-100%); width:min(300px,85vw); }
+      .main,.shell.sidebar-collapsed .main { margin-left:0; }
+      .shell:not(.sidebar-collapsed) .sidebar { transform:translateX(0); }
+      .shell.sidebar-collapsed .sidebar { width:min(300px,85vw); transform:translateX(-100%); }
+      .sidebar-backdrop { position:fixed; inset:0; z-index:45; background:rgba(15,23,42,.42); }
+      .shell:not(.sidebar-collapsed) .sidebar-backdrop { display:block; }
+      .shell.sidebar-collapsed .sidebar-section-label,.shell.sidebar-collapsed .nav-card-text,.shell.sidebar-collapsed .teacher-name,.shell.sidebar-collapsed .teacher-role { display:initial; }
+      .shell.sidebar-collapsed .nav-card { justify-content:flex-start; padding:.78rem .9rem; }
+      .shell.sidebar-collapsed .sidebar-brand { display:flex; }
+      .shell.sidebar-collapsed .sidebar-logo { justify-content:space-between; padding:1rem; }
+      .shell.sidebar-collapsed .teacher-card { justify-content:flex-start; padding:.65rem .8rem; }
+      .shell.sidebar-collapsed .btn-logout { font-size:.83rem; }
+      .shell.sidebar-collapsed .btn-logout::before { content:none; }
+      .shell.sidebar-collapsed .sidebar-section { padding:1rem .85rem .4rem; }
+      .shell.sidebar-collapsed .sidebar-footer { padding:.9rem; }
+      .topbar { padding:.8rem 1rem; }
+      .page { padding:1rem; }
+      .sidebar-expand-toggle { top:9px; left:9px; padding:8px; }
+      .sidebar-expand-toggle .claw-label { display:none; }
+      .home-ranking-columns { grid-template-columns:1fr; }
+    }
   </style>
 </head>
 <body>
 <div id="toasts"></div>
+<button class="claw-toggle sidebar-expand-toggle" id="sidebar-reopen" type="button" aria-label="Abrir menú con la Garra" aria-controls="main-sidebar" aria-expanded="false" title="Abrir menú">
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4.5 4C4.3 5.8 4.8 7.5 5.5 8.8C6.2 7.8 7 7.2 7 5.8C7 4.2 5.5 3 4.5 4Z"></path><ellipse cx="6" cy="11.2" rx="1.6" ry="2.2" transform="rotate(-18 6 11.2)"></ellipse>
+    <path d="M8.8 2C8.7 4 9.4 6 10.3 7.3C11 6.3 11.7 5.5 11.6 4C11.5 2.2 9.8 1.2 8.8 2Z"></path><ellipse cx="10.2" cy="9.6" rx="1.6" ry="2.4" transform="rotate(-6 10.2 9.6)"></ellipse>
+    <path d="M15.2 2C14.2 1.2 12.5 2.2 12.4 4C12.3 5.5 13 6.3 13.7 7.3C14.6 6 15.3 4 15.2 2Z"></path><ellipse cx="13.8" cy="9.6" rx="1.6" ry="2.4" transform="rotate(6 13.8 9.6)"></ellipse>
+    <path d="M19.5 4C18.5 3 17 4.2 17 5.8C17 7.2 17.8 7.8 18.5 8.8C19.2 7.5 19.7 5.8 19.5 4Z"></path><ellipse cx="18" cy="11.2" rx="1.6" ry="2.2" transform="rotate(18 18 11.2)"></ellipse>
+    <path d="M7 16.5C7.2 14.5 8.6 13.5 12 13.5C15.4 13.5 16.8 14.5 17 16.5C17.2 18.5 16 21.5 12 21.5C8 21.5 6.8 18.5 7 16.5Z"></path>
+  </svg><span class="claw-label">Abrir menú</span>
+</button>
 
 <div class="shell">
   <!-- ════════ SIDEBAR ════════ -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="main-sidebar">
     <div class="sidebar-logo">
-      <img src="https://immsec.neocities.org/IMM/IMM.png" alt="Logo IMM">
-      <span>MaderoChecker</span>
+      <div class="sidebar-brand">
+        <img src="https://immsec.neocities.org/IMM/IMM.png" alt="Logo IMM">
+        <span>MaderoChecker</span>
+      </div>
+      <button class="claw-toggle" id="sidebar-toggle" type="button" aria-label="Colapsar menú con la Garra" aria-controls="main-sidebar" aria-expanded="true" title="Colapsar menú">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4.5 4C4.3 5.8 4.8 7.5 5.5 8.8C6.2 7.8 7 7.2 7 5.8C7 4.2 5.5 3 4.5 4Z"></path><ellipse cx="6" cy="11.2" rx="1.6" ry="2.2" transform="rotate(-18 6 11.2)"></ellipse>
+          <path d="M8.8 2C8.7 4 9.4 6 10.3 7.3C11 6.3 11.7 5.5 11.6 4C11.5 2.2 9.8 1.2 8.8 2Z"></path><ellipse cx="10.2" cy="9.6" rx="1.6" ry="2.4" transform="rotate(-6 10.2 9.6)"></ellipse>
+          <path d="M15.2 2C14.2 1.2 12.5 2.2 12.4 4C12.3 5.5 13 6.3 13.7 7.3C14.6 6 15.3 4 15.2 2Z"></path><ellipse cx="13.8" cy="9.6" rx="1.6" ry="2.4" transform="rotate(6 13.8 9.6)"></ellipse>
+          <path d="M19.5 4C18.5 3 17 4.2 17 5.8C17 7.2 17.8 7.8 18.5 8.8C19.2 7.5 19.7 5.8 19.5 4Z"></path><ellipse cx="18" cy="11.2" rx="1.6" ry="2.2" transform="rotate(18 18 11.2)"></ellipse>
+          <path d="M7 16.5C7.2 14.5 8.6 13.5 12 13.5C15.4 13.5 16.8 14.5 17 16.5C17.2 18.5 16 21.5 12 21.5C8 21.5 6.8 18.5 7 16.5Z"></path>
+        </svg>
+      </button>
     </div>
 
     <div class="sidebar-section">
@@ -488,13 +594,25 @@
       <button class="btn-logout" id="btn-logout">🚪 Cerrar Sesión</button>
     </div>
   </aside>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
 
   <!-- ════════ MAIN ════════ -->
   <div class="main">
     <div class="topbar">
-      <div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="claw-toggle sidebar-top-toggle" id="sidebar-top-toggle" type="button" aria-label="Alternar menú con la Garra" aria-controls="main-sidebar" aria-expanded="true" title="Colapsar / abrir menú">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4.5 4C4.3 5.8 4.8 7.5 5.5 8.8C6.2 7.8 7 7.2 7 5.8C7 4.2 5.5 3 4.5 4Z"></path><ellipse cx="6" cy="11.2" rx="1.6" ry="2.2" transform="rotate(-18 6 11.2)"></ellipse>
+            <path d="M8.8 2C8.7 4 9.4 6 10.3 7.3C11 6.3 11.7 5.5 11.6 4C11.5 2.2 9.8 1.2 8.8 2Z"></path><ellipse cx="10.2" cy="9.6" rx="1.6" ry="2.4" transform="rotate(-6 10.2 9.6)"></ellipse>
+            <path d="M15.2 2C14.2 1.2 12.5 2.2 12.4 4C12.3 5.5 13 6.3 13.7 7.3C14.6 6 15.3 4 15.2 2Z"></path><ellipse cx="13.8" cy="9.6" rx="1.6" ry="2.4" transform="rotate(6 13.8 9.6)"></ellipse>
+            <path d="M19.5 4C18.5 3 17 4.2 17 5.8C17 7.2 17.8 7.8 18.5 8.8C19.2 7.5 19.7 5.8 19.5 4Z"></path><ellipse cx="18" cy="11.2" rx="1.6" ry="2.2" transform="rotate(18 18 11.2)"></ellipse>
+            <path d="M7 16.5C7.2 14.5 8.6 13.5 12 13.5C15.4 13.5 16.8 14.5 17 16.5C17.2 18.5 16 21.5 12 21.5C8 21.5 6.8 18.5 7 16.5Z"></path>
+          </svg><span>Menú Tigre</span>
+        </button>
+        <div>
         <div class="topbar-title" id="topbar-title">Inicio</div>
         <div class="topbar-sub"  id="topbar-sub">Bienvenido al portal docente</div>
+      </div>
       </div>
       <span class="topbar-chip" id="topbar-chip">🏠 Inicio</span>
     </div>
@@ -542,6 +660,18 @@
           </div>
           <div style="padding:1.2rem; display:flex; flex-wrap:wrap; gap:8px;" id="home-clases-list">
             <span style="color:var(--muted); font-size:0.88rem;">Cargando…</span>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:1.2rem;">
+          <div class="card-header">
+            <div>
+              <h2>📊 Resultados por materia y salón</h2>
+              <p style="margin-top:5px;color:var(--muted);font-size:.77rem;">Promedio global, salón con mejor promedio, mejores 3 y alumnos que requieren apoyo, según el último parcial completo disponible o, si no hay, el último momento completo.</p>
+            </div>
+          </div>
+          <div id="home-assessment-insights" style="padding:1.2rem;">
+            <div class="empty-state" style="padding:1.5rem;"><p>Cargando resumen de evaluaciones…</p></div>
           </div>
         </div>
 
@@ -777,11 +907,17 @@
       <div class="panel" id="panel-alumnos">
         <div class="card">
           <div class="card-header">
-            <h2>🔍 Consulta de Alumnos</h2>
+            <div>
+              <h2>🔍 Consulta de Alumnos</h2>
+              <p style="margin-top:4px;color:var(--muted);font-size:.77rem;">Busca por matrícula o nombre; los reportes se agrupan por materia, parcial y momento.</p>
+            </div>
           </div>
-          <div style="padding:1.2rem 1.4rem; border-bottom:1px solid var(--border); display:flex; gap:8px; flex-wrap:wrap;">
-            <input class="finput" id="alum-search" placeholder="Buscar por matrícula o nombre…" style="flex:1; min-width:200px;">
-            <button class="btn btn-primary btn-lg" onclick="buscarAlumno()">Buscar</button>
+          <div style="padding:1.2rem 1.4rem; border-bottom:1px solid var(--border);">
+            <label for="alum-search" style="display:block;margin-bottom:8px;font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);">Matrícula o nombre del alumno</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input class="finput" id="alum-search" placeholder="Escribe una matrícula o nombre completo…" style="flex:1;min-width:200px;">
+              <button class="btn btn-primary btn-lg" type="button" onclick="buscarAlumno()">Buscar →</button>
+            </div>
           </div>
           <div id="alumno-result" style="padding:1.4rem;">
             <div class="empty-state">
@@ -1331,6 +1467,27 @@ const panelMeta = {
   alumnos:         { title:"Consulta de Alumnos",    sub:"Búsqueda por matrícula o nombre", chip:"🔍 Alumnos" }
 };
 
+function setSidebarCollapsed(collapsed, persist = true) {
+  const shell = document.querySelector(".shell");
+  shell.classList.toggle("sidebar-collapsed", collapsed);
+  document.getElementById("sidebar-reopen").hidden = !collapsed;
+  [document.getElementById("sidebar-toggle"), document.getElementById("sidebar-top-toggle"), document.getElementById("sidebar-reopen")]
+    .forEach(button => button.setAttribute("aria-expanded", String(!collapsed)));
+  document.getElementById("sidebar-toggle").setAttribute("aria-label", collapsed ? "Abrir menú con la Garra" : "Colapsar menú con la Garra");
+  document.getElementById("sidebar-top-toggle").setAttribute("aria-label", collapsed ? "Abrir menú con la Garra" : "Colapsar menú con la Garra");
+  document.getElementById("sidebar-reopen").setAttribute("aria-label", collapsed ? "Abrir menú con la Garra" : "Colapsar menú con la Garra");
+  if (persist) localStorage.setItem("maderoTeacherSidebarCollapsed", collapsed ? "true" : "false");
+}
+
+const savedSidebarState = localStorage.getItem("maderoTeacherSidebarCollapsed");
+setSidebarCollapsed(window.innerWidth <= 760 || savedSidebarState === "true", false);
+document.getElementById("sidebar-toggle").addEventListener("click", () => setSidebarCollapsed(true));
+document.getElementById("sidebar-top-toggle").addEventListener("click", () => {
+  setSidebarCollapsed(!document.querySelector(".shell").classList.contains("sidebar-collapsed"));
+});
+document.getElementById("sidebar-reopen").addEventListener("click", () => setSidebarCollapsed(false));
+document.getElementById("sidebar-backdrop").addEventListener("click", () => setSidebarCollapsed(true));
+
 document.querySelectorAll(".nav-card[data-panel]").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".nav-card[data-panel]").forEach(b => b.classList.remove("active"));
@@ -1342,6 +1499,7 @@ document.querySelectorAll(".nav-card[data-panel]").forEach(btn => {
     document.getElementById("topbar-title").textContent = m.title || "";
     document.getElementById("topbar-sub").textContent   = m.sub   || "";
     document.getElementById("topbar-chip").textContent  = m.chip  || "";
+    if (window.innerWidth <= 760) setSidebarCollapsed(true);
   });
 });
 
@@ -1540,6 +1698,7 @@ async function saveMomentConfiguration() {
     await db.collection("Usuarios").doc(DOCENTE_ID).update({ Momentos: updatedConfigurations });
     momentConfiguration = updatedConfigurations;
     docenteData.Momentos = updatedConfigurations;
+    await loadDashboardAssessmentInsights(docenteData.Clases || []);
     document.getElementById("momentos-status").textContent = "Configuración guardada.";
     toast("Se guardó la configuración de los momentos.", "ok");
   } catch (error) {
@@ -1594,6 +1753,157 @@ function calculateMomentGrade(studentId, clase, momentIndex, records) {
   if (grades.some(grade => grade === null)) return null;
   const average = grades.reduce((sum, grade) => sum + grade, 0) / grades.length;
   return roundMomentGrade(average, config.umbrales[momentIndex]);
+}
+
+function renderDashboardRanking(title, students, descending) {
+  const sorted = [...students].sort((a, b) =>
+    (descending ? b.grade - a.grade : a.grade - b.grade) ||
+    String(a.name).localeCompare(String(b.name), "es")
+  ).slice(0, 3);
+  if (!sorted.length) return `<p style="color:var(--muted);font-size:.76rem;">Sin promedios completos.</p>`;
+  return `<h4>${title}</h4><ol>${sorted.map(student =>
+    `<li><strong>${h(student.name)}</strong> <span>· ${student.grade.toFixed(2)}</span></li>`
+  ).join("")}</ol>`;
+}
+
+async function loadDashboardAssessmentInsights(clases) {
+  const target = document.getElementById("home-assessment-insights");
+  if (!clases.length) {
+    target.innerHTML = `<div class="empty-state" style="padding:1.5rem;"><p>Asigna materias para ver resultados.</p></div>`;
+    return;
+  }
+  target.innerHTML = `<div class="empty-state" style="padding:1.5rem;"><p>Calculando promedios y rankings…</p></div>`;
+  try {
+    const [studentsSnapshot, recordsSnapshot] = await Promise.all([
+      db.collection("Usuarios").where("Rol", "==", "Alumno").get(),
+      db.collection("Calificaciones").where("DocenteId", "==", DOCENTE_ID).get()
+    ]);
+    const students = studentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const records = recordsSnapshot.docs.map(doc => doc.data());
+    const recordsByClass = new Map();
+    records.forEach(record => {
+      if (!recordsByClass.has(record.Clase)) recordsByClass.set(record.Clase, []);
+      recordsByClass.get(record.Clase).push(record);
+    });
+    const palette = [
+      { color: "#4f46e5", tint: "#eef2ff" },
+      { color: "#0d9488", tint: "#ccfbf1" },
+      { color: "#d97706", tint: "#fef3c7" },
+      { color: "#db2777", tint: "#fce7f3" },
+      { color: "#2563eb", tint: "#dbeafe" },
+      { color: "#7c3aed", tint: "#ede9fe" }
+    ];
+    const cards = [...new Set(clases)].map((clase, classIndex) => {
+      const classRecords = recordsByClass.get(clase) || [];
+      const partials = cacheParciales.filter(partial => partial.Clase === clase)
+        .sort((a, b) => Number(b.Numero) - Number(a.Numero));
+      const partialScores = new Map();
+      partials.forEach(partial => {
+        const recordsByStudent = new Map();
+        classRecords.filter(record => record.ParcialId === partial.id).forEach(record => {
+          const studentId = String(record.AlumnoMatricula);
+          if (!recordsByStudent.has(studentId)) recordsByStudent.set(studentId, []);
+          recordsByStudent.get(studentId).push(record);
+        });
+        const grades = new Map();
+        students.forEach(student => {
+          const studentId = String(student.Matricula || student.id);
+          grades.set(studentId, calculatePartialGrade(studentId, clase, partial, recordsByStudent.get(studentId) || []));
+        });
+        partialScores.set(partial.id, grades);
+      });
+      let assessment = null;
+      for (const partial of partials) {
+        const ranked = students.map(student => {
+          const studentId = String(student.Matricula || student.id);
+          const grade = partialScores.get(partial.id)?.get(studentId) ?? null;
+          return {
+            id: studentId,
+            name: nombreListaAlumno(student) || studentId,
+            grade: student.Grado || "—",
+            group: student.Grupo || "—",
+            score: grade
+          };
+        }).filter(student => student.score !== null);
+        if (ranked.length) {
+          assessment = { label: getPeriodLabel(partial), students: ranked };
+          break;
+        }
+      }
+      if (!assessment) {
+        const config = getMomentConfiguration(clase);
+        for (let momentIndex = 2; momentIndex >= 0; momentIndex--) {
+          const ranked = students.map(student => {
+            const studentId = String(student.Matricula || student.id);
+            const selectedIds = config.parciales[momentIndex];
+            const partialGrades = selectedIds.map(id => partialScores.get(id)?.get(studentId) ?? null);
+            const grade = partialGrades.length && partialGrades.every(value => value !== null)
+              ? roundMomentGrade(partialGrades.reduce((sum, value) => sum + value, 0) / partialGrades.length, config.umbrales[momentIndex])
+              : null;
+            return {
+              id: studentId,
+              name: nombreListaAlumno(student) || studentId,
+              grade: student.Grado || "—",
+              group: student.Grupo || "—",
+              score: grade
+            };
+          }).filter(student => student.score !== null);
+          if (ranked.length) {
+            assessment = { label: `Momento ${momentIndex + 1}`, students: ranked };
+            break;
+          }
+        }
+      }
+
+      const color = palette[classIndex % palette.length];
+      if (!assessment) {
+        return `<article class="home-insight-card" style="--insight-color:${color.color};--insight-tint:${color.tint};">
+          <div class="home-insight-head"><div><h3>${h(clase)}</h3><p>Sin parciales o momentos con calificaciones completas todavía.</p></div>
+            <div class="home-average"><small>Promedio global</small><strong>—</strong></div></div>
+          <div class="home-insight-empty">Captura las calificaciones completas para mostrar los resultados de esta materia.</div>
+        </article>`;
+      }
+
+      const grouped = new Map();
+      assessment.students.forEach(student => {
+        const key = `${student.grade}||${student.group}`;
+        if (!grouped.has(key)) grouped.set(key, { grade: student.grade, group: student.group, scores: [], students: [] });
+        grouped.get(key).scores.push(student.score);
+        grouped.get(key).students.push(student);
+      });
+      const groupRankings = [...grouped.values()].map(group => ({
+        ...group,
+        average: group.scores.reduce((sum, score) => sum + score, 0) / group.scores.length
+      })).sort((a, b) => b.average - a.average || a.grade.localeCompare(b.grade, "es") || a.group.localeCompare(b.group, "es"));
+      const globalAverage = assessment.students.reduce((sum, student) => sum + student.score, 0) / assessment.students.length;
+      const bestGroup = groupRankings[0];
+      const salonRankings = groupRankings.map(group => {
+        const ranked = group.students.map(student => ({ name: student.name, grade: student.score }));
+        return `<section class="home-salon-rank-card">
+          <div class="home-salon-rank-head"><strong>Grado ${h(group.grade)} · Grupo ${h(group.group)}</strong><span>${group.average.toFixed(2)} / 10 · ${group.students.length} alumno(s)</span></div>
+          <div class="home-ranking-columns">
+            <div class="home-ranking">${renderDashboardRanking("🌟 Mejores 3", ranked, true)}</div>
+            <div class="home-ranking">${renderDashboardRanking("🧭 Requieren apoyo · 3 más bajos", ranked, false)}</div>
+          </div>
+        </section>`;
+      }).join("");
+      return `<article class="home-insight-card" style="--insight-color:${color.color};--insight-tint:${color.tint};">
+        <div class="home-insight-head">
+          <div><h3>${h(clase)}</h3><p>${h(assessment.label)} · ${assessment.students.length} alumno(s) con calificación completa</p></div>
+          <div class="home-average"><small>Promedio global</small><strong>${globalAverage.toFixed(2)}</strong></div>
+        </div>
+        <div class="home-group-winner"><small>🏆 Salón con mejor promedio</small>
+          <strong>#1 · Grado ${h(bestGroup.grade)} · Grupo ${h(bestGroup.group)} · ${bestGroup.average.toFixed(2)} / 10</strong>
+          <span style="font-size:.7rem;color:var(--muted);">${bestGroup.scores.length} alumno(s) evaluados</span>
+        </div>
+        <div class="home-salon-rankings">${salonRankings}</div>
+      </article>`;
+    });
+    target.innerHTML = `<div class="home-insights-grid">${cards.join("")}</div>`;
+  } catch (error) {
+    target.innerHTML = `<div class="empty-state" style="padding:1.5rem;"><p>No se pudo cargar el resumen de evaluaciones.</p><small>${h(error.message)}</small></div>`;
+    toast("No se pudo calcular el resumen de resultados: " + error.message, "err");
+  }
 }
 
 function gradeNumberInSpanish(value) {
@@ -1689,6 +1999,7 @@ async function loadParciales() {
     document.getElementById("s-parciales").textContent = cacheParciales.length;
     renderParciales();
     renderMomentConfiguration();
+    if (docenteData.Clases) await loadDashboardAssessmentInsights(docenteData.Clases);
   } catch(e) { toast("Error cargando parciales: " + e.message, "err"); }
 }
 
@@ -2390,6 +2701,7 @@ async function saveAllGrades(showToast = true) {
     document.querySelectorAll(".partial-comment").forEach(input => { calPartialComments[input.dataset.matCom] = input.value.trim(); });
     document.getElementById("cal-info").textContent = `${calAlumnos.length} alumno(s) — ${clase} · Grupo ${grupo} · Guardado`;
     if (showToast) toast("Calificaciones guardadas correctamente", "ok");
+    if (recordsToSave) await loadDashboardAssessmentInsights(docenteData.Clases || []);
   } catch(e) {
     document.getElementById("cal-info").textContent = "No se pudieron guardar los cambios.";
     toast("Error: " + e.message, "err");
@@ -3150,50 +3462,69 @@ async function buscarAlumno() {
 
     let calHtml = "";
     if (!Object.keys(grouped).length) {
-      calHtml = `<p style="color:var(--muted); font-size:0.88rem;">Sin calificaciones registradas aún.</p>`;
+      calHtml = `<p style="color:var(--muted);font-size:.88rem;">Sin evaluaciones registradas todavía.</p>`;
     } else {
-      const tiles = [];
       const groups = Object.values(grouped).sort((a, b) =>
         String(a.clase).localeCompare(String(b.clase), "es") ||
         Number(cacheParciales.find(item => item.id === a.parcial)?.Numero || 0) - Number(cacheParciales.find(item => item.id === b.parcial)?.Numero || 0)
       );
-      const classColors = new Map([...new Set(groups.map(group => group.clase))].map((clase, index) => [clase, index % 6]));
+      const groupsByClass = new Map();
+      groups.forEach(group => {
+        if (!groupsByClass.has(group.clase)) groupsByClass.set(group.clase, []);
+        groupsByClass.get(group.clase).push(group);
+      });
+      const partialCommentEntries = await Promise.all(groups.map(async group => {
+        const snapshot = await db.collection("ComentariosParciales").doc(partialCommentDocId(group.parcial, mat)).get();
+        return [`${group.clase}||P${group.parcial}`, snapshot.exists ? snapshot.data().Comentario || "" : ""];
+      }));
+      const partialComments = new Map(partialCommentEntries);
+      const palette = [
+        { color: "#059669", tint: "#ecfdf5", icon: "📗" },
+        { color: "#0891b2", tint: "#ecfeff", icon: "💻" },
+        { color: "#4f46e5", tint: "#eef2ff", icon: "📘" },
+        { color: "#d97706", tint: "#fffbeb", icon: "📙" },
+        { color: "#db2777", tint: "#fdf2f8", icon: "📕" },
+        { color: "#7c3aed", tint: "#f5f3ff", icon: "📚" }
+      ];
       let tileIndex = 0;
-      for (const g of groups) {
-        const par = cacheParciales.find(p => p.id === g.parcial);
-        const reportKey = `reporte-${tileIndex++}`;
-        const commentSnap = await db.collection("ComentariosParciales").doc(partialCommentDocId(g.parcial, mat)).get();
-        const comentarioParcial = commentSnap.exists
-          ? commentSnap.data().Comentario || ""
-          : g.items.find(item => item.Comentario)?.Comentario || "";
-        individualReports[reportKey] = { alumno, parcial: par || null, clase: g.clase, items: g.items, comentarioParcial };
-        const configuredCriteria = par?.Criterios?.length ? par.Criterios : g.items.map(item => ({ nombre: item.Criterio, porcentaje: 0 }));
-        const gradesByCriterion = new Map(g.items.map(item => [item.Criterio, item]));
-        const criteria = configuredCriteria.map(criterion => {
-          const record = gradesByCriterion.get(criterion.nombre);
-          const rawGrade = record?.Calificacion;
-          const grade = rawGrade === undefined || rawGrade === null || rawGrade === "" ? null : Number(rawGrade);
-          const percentage = Number(criterion.porcentaje) || 0;
-          return { name: criterion.nombre, percentage, grade: grade !== null && Number.isFinite(grade) ? grade : null, record };
+      calHtml = [...groupsByClass.entries()].map(([clase, classGroups], classIndex) => {
+        const theme = palette[classIndex % palette.length];
+        const partialTiles = [];
+        const momentTiles = [];
+        let latestCompleteGrade = null;
+        let latestCompleteLabel = "";
+        classGroups.forEach(group => {
+          const parcial = cacheParciales.find(item => item.id === group.parcial);
+          const reportKey = `reporte-${tileIndex++}`;
+          individualReports[reportKey] = {
+            alumno,
+            parcial: parcial || null,
+            clase: group.clase,
+            items: group.items,
+            comentarioParcial: partialComments.get(`${group.clase}||P${group.parcial}`) || group.items.find(item => item.Comentario)?.Comentario || ""
+          };
+          const criteria = parcial?.Criterios || [];
+          const assignedWeight = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
+          const gradesByCriterion = new Map(group.items.map(item => [item.Criterio, item]));
+          const capturedWeight = criteria.reduce((sum, criterion) => {
+            const value = gradesByCriterion.get(criterion.nombre)?.Calificacion;
+            return value === undefined || value === null || value === "" || !Number.isFinite(Number(value))
+              ? sum
+              : sum + (Number(criterion.porcentaje) || 0);
+          }, 0);
+          const partialGrade = calculatePartialGrade(mat, clase, parcial || { id: group.parcial, Criterios: [] }, cals);
+          if (partialGrade !== null) {
+            latestCompleteGrade = partialGrade;
+            latestCompleteLabel = getPeriodLabel(parcial);
+          }
+          partialTiles.push(`<button type="button" class="subject-evaluation-tile" onclick="openIndividualReport('${reportKey}')">
+            <span><strong>${h(getPeriodLabel(parcial))}</strong><small>${h(clase)}</small></span>
+            <span class="subject-evaluation-grade">${partialGrade === null ? `${capturedWeight}% capturado` : `${partialGrade.toFixed(1)} / 10`}</span>
+          </button>`);
         });
-        const weightedGrade = criteria.reduce((sum, criterion) => sum + (criterion.grade === null ? 0 : criterion.grade * criterion.percentage / 100), 0);
-        const capturedWeight = criteria.reduce((sum, criterion) => sum + (criterion.grade === null ? 0 : criterion.percentage), 0);
-        const assignedWeight = criteria.reduce((sum, criterion) => sum + criterion.percentage, 0);
-        const complete = assignedWeight === 100 && capturedWeight === assignedWeight;
-        tiles.push(`<button type="button" class="individual-report-tile report-color-${classColors.get(g.clase)}" onclick="openIndividualReport('${reportKey}')">
-          <strong>${h(g.clase)}</strong><small>${h(getPeriodLabel(par))}</small>
-          <small>${complete ? `Calificación ${weightedGrade.toFixed(2)} / 10` : `Avance ${capturedWeight}%`}</small>
-        </button>`);
-      }
-
-      const classesWithGrades = [...new Set(groups.map(group => group.clase))];
-      for (const clase of classesWithGrades) {
-        const config = getMomentConfiguration(clase);
         for (let momentIndex = 0; momentIndex < 3; momentIndex++) {
-          const configuredPartialIds = config.parciales[momentIndex].filter(id =>
-            cacheParciales.some(partial => partial.id === id && partial.Clase === clase)
-          );
-          if (!configuredPartialIds.length) continue;
+          const selectedIds = getMomentConfiguration(clase).parciales[momentIndex];
+          if (!selectedIds.some(id => cacheParciales.some(partial => partial.id === id && partial.Clase === clase))) continue;
           const details = getMomentStudentDetails(mat, clase, momentIndex, cals);
           if (!details.partialReports.length) continue;
           const reportKey = `reporte-${tileIndex++}`;
@@ -3205,13 +3536,27 @@ async function buscarAlumno() {
             momentLabel: `Momento ${momentIndex + 1}`,
             ...details
           };
-          tiles.push(`<button type="button" class="individual-report-tile report-color-${classColors.get(clase)}" onclick="openIndividualMomentReport('${reportKey}')">
-            <strong>${h(clase)}</strong><small>${h(`Momento ${momentIndex + 1}`)}</small>
-            <small>${details.grade === null ? "Promedio pendiente" : `Calificación ${details.grade} / 10`}</small>
+          momentTiles.push(`<button type="button" class="subject-moment-tile" onclick="openIndividualMomentReport('${reportKey}')">
+            <span>Momento ${momentIndex + 1}</span>
+            <strong>${details.grade === null ? "Pendiente" : `${details.grade} / 10`}</strong>
+            <small>${details.partialReports.length} parcial(es) asignado(s) · Abrir reporte individual →</small>
           </button>`);
         }
-      }
-      calHtml = `<div class="individual-report-grid">${tiles.join("")}</div>`;
+        const averageLabel = latestCompleteGrade === null ? "Sin promedio" : `${latestCompleteGrade.toFixed(2)} / 10 · ${latestCompleteLabel}`;
+        return `<article class="subject-report-card" style="--subject-color:${theme.color};--subject-tint:${theme.tint};">
+          <div class="subject-report-heading">
+            <div class="subject-report-title"><span class="subject-report-icon">${theme.icon}</span>
+              <div><h3>${h(clase)}</h3><p>Historial de evaluaciones y reportes</p></div>
+            </div>
+            <div class="subject-report-average"><small>Último parcial completo</small><strong>${h(averageLabel)}</strong></div>
+          </div>
+          <div class="subject-report-body">
+            <div class="subject-report-section-title">Evaluaciones parciales</div>
+            <div class="subject-evaluation-grid">${partialTiles.join("")}</div>
+            ${momentTiles.length ? `<div class="subject-report-section-title">Momentos configurados</div><div class="subject-moment-grid">${momentTiles.join("")}</div>` : `<p class="subject-report-empty">Esta materia todavía no tiene momentos configurados.</p>`}
+          </div>
+        </article>`;
+      }).join("");
     }
 
     result.innerHTML = `
