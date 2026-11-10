@@ -78,9 +78,8 @@
     .claw-toggle svg { width:22px; height:22px; fill:currentColor; }
     @keyframes claw-swipe { 30% { transform:scale(1.12) rotate(-8deg); filter:drop-shadow(0 0 7px #f97316); } 65% { transform:scale(.96) rotate(5deg); } }
     .claw-toggle:hover svg { animation:claw-swipe .42s ease-in-out; }
-    .sidebar-top-toggle { padding:7px 10px; font-size:.72rem; font-weight:800; }
-    .sidebar-expand-toggle { position:fixed; top:14px; left:14px; z-index:60; padding:9px 12px; box-shadow:0 8px 24px rgba(15,23,42,.22); }
-    .sidebar-expand-toggle[hidden] { display:none; }
+    .sidebar-expand-toggle { position:fixed; top:14px; left:14px; z-index:60; display:grid; place-items:center; width:54px; height:54px; padding:0; border:0; border-radius:14px; background:transparent; box-shadow:0 8px 24px rgba(15,23,42,.22); }
+    .sidebar-expand-toggle img { width:100%; height:100%; border-radius:14px; object-fit:cover; }
 
     .sidebar-section { padding:1rem 0.85rem 0.4rem; }
     .sidebar-section-label {
@@ -141,7 +140,7 @@
     .btn-logout:hover { background:rgba(220,38,38,0.4); color:#fff; }
 
     /* ─── MAIN ─── */
-    .main { margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; min-height:100vh; transition:margin-left .28s ease; }
+    .main { margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; min-width:0; min-height:100vh; transition:margin-left .28s ease; }
     .shell.sidebar-collapsed .sidebar { width:76px; }
     .shell.sidebar-collapsed .main { margin-left:76px; }
     .shell.sidebar-collapsed .sidebar-logo { justify-content:center; padding:1rem .5rem; }
@@ -168,7 +167,7 @@
     .topbar-sub   { font-size:0.8rem; color:var(--muted); margin-top:2px; }
     .topbar-chip  { background:var(--indigo-light); color:var(--indigo); font-size:0.78rem; font-weight:700; padding:5px 12px; border-radius:20px; }
 
-    .page { padding:1.5rem 1.8rem; flex:1; }
+    .page { min-width:0; padding:1.5rem 1.8rem; flex:1; }
 
     /* ─── PANELS ─── */
     .panel { display:none; }
@@ -460,6 +459,70 @@
     .subject-moment-tile small { margin-top:auto; padding-top:7px; color:var(--muted); font-size:.68rem; }
     .subject-report-empty { padding:8px 0 2px; color:var(--muted); font-size:.78rem; }
     .sidebar-backdrop { display:none; }
+    .parciales-card { min-width:0; max-width:100%; overflow:hidden; border:1px solid #e2e8f0; border-radius:22px; box-shadow:0 12px 32px rgba(15,23,42,.055); }
+    .parciales-header { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:22px 24px; border-bottom:1px solid #e8edf4; }
+    .parciales-heading { display:flex; align-items:center; gap:13px; min-width:0; }
+    .parciales-heading-icon { display:grid; place-items:center; width:44px; height:44px; flex:none; border:1px solid #e0e7ff; border-radius:14px; background:#eef2ff; font-size:1.2rem; }
+    .parciales-heading h2 { font-size:1.08rem; font-weight:850; letter-spacing:-.02em; }
+    .parciales-heading p { margin-top:4px; color:var(--muted); font-size:.76rem; }
+    .parciales-subject-count { display:inline-flex; margin-left:6px; padding:3px 8px; border-radius:99px; background:#f1f5f9; color:#475569; font-size:.66rem; font-weight:800; vertical-align:middle; }
+    .parciales-controls { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
+    .parciales-filter { display:flex; align-items:center; gap:8px; }
+    .parciales-filter label { color:#64748b; font-size:.72rem; font-weight:700; white-space:nowrap; }
+    .parciales-filter .fselect { min-width:200px; border-color:#cbd5e1; border-radius:11px; background:#f8fafc; font-size:.78rem; font-weight:650; }
+    .parciales-header .btn-primary { background:linear-gradient(120deg,#4f46e5,#6d28d9); border-radius:11px; box-shadow:0 5px 14px rgba(79,70,229,.2); }
+    .parciales-table-wrap { overflow-x:auto; }
+    #tbl-parciales { min-width:830px; }
+    #tbl-parciales th { padding:12px 17px; background:#f8fafc; color:#64748b; font-size:.66rem; letter-spacing:.65px; }
+    #tbl-parciales td { padding:13px 17px; }
+    #tbl-parciales tbody tr { transition:background .16s; }
+    #tbl-parciales tbody tr:hover { background:#f8faff; }
+    .parcial-class-chip { display:inline-flex; align-items:center; gap:7px; padding:6px 10px; border:1px solid #e0e7ff; border-radius:10px; background:#eef2ff; color:#4338ca; font-size:.75rem; font-weight:800; }
+    .parcial-class-chip::before { width:7px; height:7px; border-radius:50%; background:#6366f1; content:""; }
+    .parcial-number { color:#1e293b; font-size:.82rem; font-weight:800; white-space:nowrap; }
+    .criteria-preview-button { display:inline-flex; align-items:center; gap:8px; padding:6px 9px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; color:#475569; font:inherit; font-size:.72rem; font-weight:750; cursor:pointer; transition:all .16s; }
+    .criteria-preview-button:hover,.criteria-preview-button:focus-visible,.criteria-preview-button[aria-expanded="true"] { border-color:#a5b4fc; background:#eef2ff; color:#4338ca; outline:none; }
+    .criteria-preview-lens { font-size:.92rem; line-height:1; }
+    .criteria-preview-count { padding:2px 6px; border-radius:6px; background:#e2e8f0; color:#475569; font-size:.65rem; font-weight:850; }
+    .criteria-preview-button:hover .criteria-preview-count,.criteria-preview-button[aria-expanded="true"] .criteria-preview-count { background:#dfe3ff; color:#4338ca; }
+    .parcial-total { display:inline-flex; align-items:center; justify-content:center; min-width:56px; padding:5px 9px; border:1px solid #bbf7d0; border-radius:99px; background:#ecfdf5; color:#15803d; font-size:.73rem; font-weight:850; }
+    .parcial-total.incomplete { border-color:#fecaca; background:#fef2f2; color:#dc2626; }
+    .parcial-status { white-space:nowrap; }
+    .parcial-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:6px; }
+    .parcial-action { min-height:32px; padding:6px 9px; font-size:.7rem; }
+    .parcial-action-icon { display:grid; place-items:center; width:30px; height:30px; padding:0; border:1px solid #fee2e2; border-radius:9px; background:#fff7f7; color:#dc2626; cursor:pointer; transition:all .15s; }
+    .parcial-action-icon:hover { background:#fee2e2; }
+    .parciales-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 20px; border-top:1px solid #e8edf4; background:#f8fafc; color:#64748b; font-size:.72rem; }
+    .parciales-footer strong { color:#334155; }
+    .criteria-popover { position:fixed; z-index:100; width:min(340px,calc(100vw - 24px)); overflow:hidden; border:1px solid #e2e8f0; border-radius:16px; background:#fff; box-shadow:0 20px 50px rgba(15,23,42,.24),0 0 0 1px rgba(15,23,42,.035); animation:criteria-popover-in .16s ease-out; }
+    .criteria-popover[hidden] { display:none; }
+    @keyframes criteria-popover-in { from { opacity:0; transform:translateY(4px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+    .criteria-popover-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; background:linear-gradient(110deg,#111827,#334155); color:#fff; }
+    .criteria-popover-title-wrap { display:flex; align-items:center; gap:9px; min-width:0; }
+    .criteria-popover-icon { display:grid; place-items:center; width:29px; height:29px; flex:none; border:1px solid rgba(251,191,36,.35); border-radius:9px; background:rgba(251,191,36,.12); }
+    .criteria-popover-title { overflow:hidden; font-size:.75rem; font-weight:800; text-overflow:ellipsis; white-space:nowrap; }
+    .criteria-popover-subtitle { margin-top:2px; color:#cbd5e1; font-size:.64rem; }
+    .criteria-popover-close { display:grid; place-items:center; width:28px; height:28px; flex:none; border:0; border-radius:8px; background:transparent; color:#cbd5e1; font-size:1.2rem; cursor:pointer; }
+    .criteria-popover-close:hover { background:rgba(255,255,255,.12); color:#fff; }
+    .criteria-popover-items { display:grid; gap:9px; max-height:min(320px,55vh); overflow-y:auto; padding:13px 14px; }
+    .criteria-popover-item { display:grid; gap:6px; }
+    .criteria-popover-item-head { display:flex; align-items:center; justify-content:space-between; gap:10px; color:#334155; font-size:.73rem; font-weight:750; }
+    .criteria-popover-item-head span:first-child { overflow-wrap:anywhere; }
+    .criteria-popover-pct { flex:none; color:#4f46e5; font-weight:850; }
+    .criteria-popover-track { height:6px; overflow:hidden; border-radius:99px; background:#eef2f7; }
+    .criteria-popover-fill { height:100%; border-radius:inherit; background:linear-gradient(90deg,#6366f1,#8b5cf6); }
+    .criteria-popover-empty { padding:8px 4px; color:#64748b; font-size:.76rem; }
+    .criteria-popover-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-top:1px solid #e2e8f0; background:#f8fafc; color:#475569; font-size:.69rem; font-weight:800; text-transform:uppercase; letter-spacing:.35px; }
+    .criteria-popover-total { padding:4px 8px; border:1px solid #bbf7d0; border-radius:99px; background:#ecfdf5; color:#15803d; font-size:.7rem; letter-spacing:0; }
+    .criteria-popover-total.incomplete { border-color:#fecaca; background:#fef2f2; color:#dc2626; }
+    @media (max-width:760px) {
+      .parciales-header { align-items:flex-start; flex-direction:column; padding:18px 16px; }
+      .parciales-controls { width:100%; justify-content:stretch; }
+      .parciales-filter { align-items:flex-start; flex:1; flex-direction:column; }
+      .parciales-filter .fselect { min-width:0; width:100%; }
+      .parciales-controls > .btn { flex:none; }
+      .parciales-footer { align-items:flex-start; flex-direction:column; padding:12px 16px; }
+    }
     @media (max-width:760px) {
       .sidebar { transform:translateX(-100%); width:min(300px,85vw); }
       .main,.shell.sidebar-collapsed .main { margin-left:0; }
@@ -478,8 +541,7 @@
       .shell.sidebar-collapsed .sidebar-footer { padding:.9rem; }
       .topbar { padding:.8rem 1rem; }
       .page { padding:1rem; }
-      .sidebar-expand-toggle { top:9px; left:9px; padding:8px; }
-      .sidebar-expand-toggle .claw-label { display:none; }
+      .sidebar-expand-toggle { top:9px; left:9px; width:50px; height:50px; }
       .home-ranking-columns { grid-template-columns:1fr; }
     }
   </style>
@@ -487,13 +549,7 @@
 <body>
 <div id="toasts"></div>
 <button class="claw-toggle sidebar-expand-toggle" id="sidebar-reopen" type="button" aria-label="Abrir menú con la Garra" aria-controls="main-sidebar" aria-expanded="false" title="Abrir menú">
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M4.5 4C4.3 5.8 4.8 7.5 5.5 8.8C6.2 7.8 7 7.2 7 5.8C7 4.2 5.5 3 4.5 4Z"></path><ellipse cx="6" cy="11.2" rx="1.6" ry="2.2" transform="rotate(-18 6 11.2)"></ellipse>
-    <path d="M8.8 2C8.7 4 9.4 6 10.3 7.3C11 6.3 11.7 5.5 11.6 4C11.5 2.2 9.8 1.2 8.8 2Z"></path><ellipse cx="10.2" cy="9.6" rx="1.6" ry="2.4" transform="rotate(-6 10.2 9.6)"></ellipse>
-    <path d="M15.2 2C14.2 1.2 12.5 2.2 12.4 4C12.3 5.5 13 6.3 13.7 7.3C14.6 6 15.3 4 15.2 2Z"></path><ellipse cx="13.8" cy="9.6" rx="1.6" ry="2.4" transform="rotate(6 13.8 9.6)"></ellipse>
-    <path d="M19.5 4C18.5 3 17 4.2 17 5.8C17 7.2 17.8 7.8 18.5 8.8C19.2 7.5 19.7 5.8 19.5 4Z"></path><ellipse cx="18" cy="11.2" rx="1.6" ry="2.2" transform="rotate(18 18 11.2)"></ellipse>
-    <path d="M7 16.5C7.2 14.5 8.6 13.5 12 13.5C15.4 13.5 16.8 14.5 17 16.5C17.2 18.5 16 21.5 12 21.5C8 21.5 6.8 18.5 7 16.5Z"></path>
-  </svg><span class="claw-label">Abrir menú</span>
+  <img src="claw.png" alt="">
 </button>
 
 <div class="shell">
@@ -504,15 +560,6 @@
         <img src="https://immsec.neocities.org/IMM/IMM.png" alt="Logo IMM">
         <span>MaderoChecker</span>
       </div>
-      <button class="claw-toggle" id="sidebar-toggle" type="button" aria-label="Colapsar menú con la Garra" aria-controls="main-sidebar" aria-expanded="true" title="Colapsar menú">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4.5 4C4.3 5.8 4.8 7.5 5.5 8.8C6.2 7.8 7 7.2 7 5.8C7 4.2 5.5 3 4.5 4Z"></path><ellipse cx="6" cy="11.2" rx="1.6" ry="2.2" transform="rotate(-18 6 11.2)"></ellipse>
-          <path d="M8.8 2C8.7 4 9.4 6 10.3 7.3C11 6.3 11.7 5.5 11.6 4C11.5 2.2 9.8 1.2 8.8 2Z"></path><ellipse cx="10.2" cy="9.6" rx="1.6" ry="2.4" transform="rotate(-6 10.2 9.6)"></ellipse>
-          <path d="M15.2 2C14.2 1.2 12.5 2.2 12.4 4C12.3 5.5 13 6.3 13.7 7.3C14.6 6 15.3 4 15.2 2Z"></path><ellipse cx="13.8" cy="9.6" rx="1.6" ry="2.4" transform="rotate(6 13.8 9.6)"></ellipse>
-          <path d="M19.5 4C18.5 3 17 4.2 17 5.8C17 7.2 17.8 7.8 18.5 8.8C19.2 7.5 19.7 5.8 19.5 4Z"></path><ellipse cx="18" cy="11.2" rx="1.6" ry="2.2" transform="rotate(18 18 11.2)"></ellipse>
-          <path d="M7 16.5C7.2 14.5 8.6 13.5 12 13.5C15.4 13.5 16.8 14.5 17 16.5C17.2 18.5 16 21.5 12 21.5C8 21.5 6.8 18.5 7 16.5Z"></path>
-        </svg>
-      </button>
     </div>
 
     <div class="sidebar-section">
@@ -600,19 +647,8 @@
   <div class="main">
     <div class="topbar">
       <div style="display:flex;align-items:center;gap:12px;">
-        <button class="claw-toggle sidebar-top-toggle" id="sidebar-top-toggle" type="button" aria-label="Alternar menú con la Garra" aria-controls="main-sidebar" aria-expanded="true" title="Colapsar / abrir menú">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4.5 4C4.3 5.8 4.8 7.5 5.5 8.8C6.2 7.8 7 7.2 7 5.8C7 4.2 5.5 3 4.5 4Z"></path><ellipse cx="6" cy="11.2" rx="1.6" ry="2.2" transform="rotate(-18 6 11.2)"></ellipse>
-            <path d="M8.8 2C8.7 4 9.4 6 10.3 7.3C11 6.3 11.7 5.5 11.6 4C11.5 2.2 9.8 1.2 8.8 2Z"></path><ellipse cx="10.2" cy="9.6" rx="1.6" ry="2.4" transform="rotate(-6 10.2 9.6)"></ellipse>
-            <path d="M15.2 2C14.2 1.2 12.5 2.2 12.4 4C12.3 5.5 13 6.3 13.7 7.3C14.6 6 15.3 4 15.2 2Z"></path><ellipse cx="13.8" cy="9.6" rx="1.6" ry="2.4" transform="rotate(6 13.8 9.6)"></ellipse>
-            <path d="M19.5 4C18.5 3 17 4.2 17 5.8C17 7.2 17.8 7.8 18.5 8.8C19.2 7.5 19.7 5.8 19.5 4Z"></path><ellipse cx="18" cy="11.2" rx="1.6" ry="2.2" transform="rotate(18 18 11.2)"></ellipse>
-            <path d="M7 16.5C7.2 14.5 8.6 13.5 12 13.5C15.4 13.5 16.8 14.5 17 16.5C17.2 18.5 16 21.5 12 21.5C8 21.5 6.8 18.5 7 16.5Z"></path>
-          </svg><span>Menú Tigre</span>
-        </button>
-        <div>
         <div class="topbar-title" id="topbar-title">Inicio</div>
         <div class="topbar-sub"  id="topbar-sub">Bienvenido al portal docente</div>
-      </div>
       </div>
       <span class="topbar-chip" id="topbar-chip">🏠 Inicio</span>
     </div>
@@ -705,25 +741,36 @@
 
       <!-- ══ PANEL: PARCIALES ══ -->
       <div class="panel" id="panel-parciales">
-        <div class="card">
-          <div class="card-header">
-            <h2>📋 Parciales por Clase</h2>
+        <div class="card parciales-card">
+          <div class="parciales-header">
+            <div class="parciales-heading">
+              <span class="parciales-heading-icon" aria-hidden="true">📋</span>
+              <div>
+                <h2>Parciales por Clase <span class="parciales-subject-count" id="parcial-subject-count">0 asignaturas</span></h2>
+                <p>Administra los parciales y consulta sus criterios y ponderaciones.</p>
+              </div>
+            </div>
+            <div class="parciales-controls">
+              <div class="parciales-filter">
+                <label for="parcial-clase-filter">Filtrar por clase</label>
+                <select class="fselect" id="parcial-clase-filter">
+                  <option value="">— Todas las clases —</option>
+                </select>
+              </div>
             <button class="btn btn-primary btn-lg" id="btn-new-parcial" onclick="openParcialModal()">+ Nuevo Parcial</button>
+            </div>
           </div>
-          <!-- Class selector -->
-          <div style="padding:1rem 1.4rem; border-bottom:1px solid var(--border); display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <label style="font-size:0.82rem; font-weight:700; color:var(--muted);">Filtrar por clase:</label>
-            <select class="fselect" id="parcial-clase-filter" style="min-width:200px;">
-              <option value="">— Todas las clases —</option>
-            </select>
-          </div>
-          <div class="table-wrap">
+          <div class="parciales-table-wrap">
             <table class="tbl" id="tbl-parciales">
               <thead><tr>
-                <th>Clase</th><th>Parcial</th><th>Criterios</th><th>Total %</th><th>Estado</th><th>Acciones</th>
+                <th scope="col">Clase</th><th scope="col">Parcial</th><th scope="col">Criterios</th><th scope="col">Total</th><th scope="col">Estado</th><th scope="col" style="text-align:right;">Acciones</th>
               </tr></thead>
               <tbody><tr class="tbl-empty"><td colspan="6">Cargando…</td></tr></tbody>
             </table>
+          </div>
+          <div class="parciales-footer">
+            <span>✓ Cada parcial debe sumar exactamente <strong>100%</strong>.</span>
+            <span id="parciales-visible-count" aria-live="polite">Cargando parciales…</span>
           </div>
         </div>
       </div>
@@ -989,6 +1036,24 @@
       <button class="btn btn-gray" onclick="closeModal('modal-parcial')">Cancelar</button>
       <button class="btn btn-primary btn-lg" id="btn-save-parcial" onclick="saveParcial()">💾 Guardar Parcial</button>
     </div>
+  </div>
+</div>
+
+<div class="criteria-popover" id="criteria-popover" role="dialog" aria-labelledby="criteria-popover-title" hidden>
+  <div class="criteria-popover-head">
+    <div class="criteria-popover-title-wrap">
+      <span class="criteria-popover-icon" aria-hidden="true">📋</span>
+      <div style="min-width:0;">
+        <h3 class="criteria-popover-title" id="criteria-popover-title"></h3>
+        <p class="criteria-popover-subtitle">Desglose de ponderaciones</p>
+      </div>
+    </div>
+    <button class="criteria-popover-close" id="criteria-popover-close" type="button" aria-label="Cerrar criterios">×</button>
+  </div>
+  <div class="criteria-popover-items" id="criteria-popover-items"></div>
+  <div class="criteria-popover-foot">
+    <span>Total de ponderación</span>
+    <span class="criteria-popover-total" id="criteria-popover-total"></span>
   </div>
 </div>
 
@@ -1470,23 +1535,28 @@ const panelMeta = {
 function setSidebarCollapsed(collapsed, persist = true) {
   const shell = document.querySelector(".shell");
   shell.classList.toggle("sidebar-collapsed", collapsed);
-  document.getElementById("sidebar-reopen").hidden = !collapsed;
-  [document.getElementById("sidebar-toggle"), document.getElementById("sidebar-top-toggle"), document.getElementById("sidebar-reopen")]
-    .forEach(button => button.setAttribute("aria-expanded", String(!collapsed)));
-  document.getElementById("sidebar-toggle").setAttribute("aria-label", collapsed ? "Abrir menú con la Garra" : "Colapsar menú con la Garra");
-  document.getElementById("sidebar-top-toggle").setAttribute("aria-label", collapsed ? "Abrir menú con la Garra" : "Colapsar menú con la Garra");
-  document.getElementById("sidebar-reopen").setAttribute("aria-label", collapsed ? "Abrir menú con la Garra" : "Colapsar menú con la Garra");
+  document.body.classList.toggle("sidebar-open", !collapsed);
+  const toggle = document.getElementById("sidebar-reopen");
+  toggle.style.left = collapsed
+    ? ""
+    : window.innerWidth <= 760
+      ? `${Math.max(9, Math.min(238, window.innerWidth * 0.85 - 62))}px`
+      : "calc(var(--sidebar-w) - 68px)";
+  toggle.setAttribute("aria-expanded", String(!collapsed));
+  toggle.setAttribute("aria-label", collapsed ? "Abrir menú con la Garra" : "Colapsar menú con la Garra");
+  toggle.title = collapsed ? "Abrir menú" : "Colapsar menú";
   if (persist) localStorage.setItem("maderoTeacherSidebarCollapsed", collapsed ? "true" : "false");
 }
 
 const savedSidebarState = localStorage.getItem("maderoTeacherSidebarCollapsed");
 setSidebarCollapsed(window.innerWidth <= 760 || savedSidebarState === "true", false);
-document.getElementById("sidebar-toggle").addEventListener("click", () => setSidebarCollapsed(true));
-document.getElementById("sidebar-top-toggle").addEventListener("click", () => {
+document.getElementById("sidebar-reopen").addEventListener("click", () => {
   setSidebarCollapsed(!document.querySelector(".shell").classList.contains("sidebar-collapsed"));
 });
-document.getElementById("sidebar-reopen").addEventListener("click", () => setSidebarCollapsed(false));
 document.getElementById("sidebar-backdrop").addEventListener("click", () => setSidebarCollapsed(true));
+window.addEventListener("resize", () => {
+  if (!document.querySelector(".shell").classList.contains("sidebar-collapsed")) setSidebarCollapsed(false, false);
+});
 
 document.querySelectorAll(".nav-card[data-panel]").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -2009,32 +2079,128 @@ function renderParciales() {
   let list = cacheParciales;
   if (filter) list = list.filter(p => p.Clase === filter);
   list.sort((a,b) => a.Clase.localeCompare(b.Clase) || Number(a.Numero) - Number(b.Numero));
+  document.getElementById("parcial-subject-count").textContent =
+    `${new Set(cacheParciales.map(partial => partial.Clase).filter(Boolean)).size} asignaturas`;
+  document.getElementById("parciales-visible-count").textContent =
+    `Mostrando ${list.length} de ${cacheParciales.length} parciales`;
   if (!list.length) {
     tbody.innerHTML = `<tr class="tbl-empty"><td colspan="6">No hay parciales para esta clase. Crea uno con "+ Nuevo Parcial".</td></tr>`;
     return;
   }
   tbody.innerHTML = list.map(p => {
-    const total = (p.Criterios || []).reduce((s,c) => s + Number(c.porcentaje||0), 0);
+    const criteria = p.Criterios || [];
+    const total = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
     const ok    = total === 100;
     return `<tr>
-      <td><span class="chip chip-indigo">${h(p.Clase)}</span></td>
-      <td><strong>Parcial ${p.Numero}</strong></td>
-      <td>${(p.Criterios||[]).map(c=>`<span class="chip chip-gray" style="font-size:0.72rem;">${h(c.nombre)} ${c.porcentaje}%</span>`).join(" ")}</td>
-      <td><strong style="color:${ok?'var(--green)':'var(--red)'};">${total}%</strong></td>
-      <td><span class="chip ${ok?'chip-green':'chip-red'}">${ok?'✓ Completo':'⚠ Incompleto'}</span></td>
-      <td style="display:flex;gap:5px;flex-wrap:wrap;">
-        <button class="btn btn-indigo" onclick="editParcial('${p.id}')">✏️ Editar</button>
-        <button class="btn btn-gray" type="button" data-copy-parcial="${h(p.id)}">Copiar parcial</button>
-        <button class="btn btn-red" onclick="deleteParcial('${p.id}')">🗑</button>
-      </td>
+      <td><span class="parcial-class-chip">${h(p.Clase)}</span></td>
+      <td><strong class="parcial-number">Parcial ${h(p.Numero)}</strong></td>
+      <td><button class="criteria-preview-button" type="button" data-criteria-parcial="${h(p.id)}" aria-controls="criteria-popover" aria-haspopup="dialog" aria-expanded="false">
+        <span class="criteria-preview-lens" aria-hidden="true">🔍</span><span>Ver criterios</span><span class="criteria-preview-count">${criteria.length}</span>
+      </button></td>
+      <td><span class="parcial-total ${ok ? "" : "incomplete"}">${total}%</span></td>
+      <td><span class="chip parcial-status ${ok ? "chip-green" : "chip-red"}">${ok ? "✓ Completo" : "⚠ Incompleto"}</span></td>
+      <td><div class="parcial-actions">
+        <button class="btn btn-indigo parcial-action" type="button" data-edit-parcial="${h(p.id)}">✏️ Editar</button>
+        <button class="btn btn-gray parcial-action" type="button" data-copy-parcial="${h(p.id)}" aria-label="Copiar criterios del Parcial ${h(p.Numero)}" title="Copiar parcial">⧉ Copiar</button>
+        <button class="parcial-action-icon" type="button" data-delete-parcial="${h(p.id)}" aria-label="Eliminar Parcial ${h(p.Numero)}" title="Eliminar parcial">🗑</button>
+      </div></td>
     </tr>`;
   }).join("");
 }
 
-document.getElementById("parcial-clase-filter").addEventListener("change", renderParciales);
+let activeCriteriaTrigger = null;
+
+function positionCriteriaPopover(trigger) {
+  const popover = document.getElementById("criteria-popover");
+  if (popover.hidden || !trigger) return;
+  const anchor = trigger.getBoundingClientRect();
+  const bounds = popover.getBoundingClientRect();
+  const margin = 12;
+  const left = Math.max(margin, Math.min(anchor.left, window.innerWidth - bounds.width - margin));
+  const below = anchor.bottom + 8;
+  const top = below + bounds.height <= window.innerHeight - margin
+    ? below
+    : Math.max(margin, anchor.top - bounds.height - 8);
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+}
+
+function closeCriteriaPopover(restoreFocus = false) {
+  const popover = document.getElementById("criteria-popover");
+  popover.hidden = true;
+  if (activeCriteriaTrigger) {
+    activeCriteriaTrigger.setAttribute("aria-expanded", "false");
+    if (restoreFocus) activeCriteriaTrigger.focus();
+  }
+  activeCriteriaTrigger = null;
+}
+
+function toggleCriteriaPopover(trigger) {
+  if (activeCriteriaTrigger === trigger) {
+    closeCriteriaPopover();
+    return;
+  }
+  const parcial = cacheParciales.find(item => item.id === trigger.dataset.criteriaParcial);
+  if (!parcial) {
+    toast("No se encontró el parcial para mostrar sus criterios.", "err");
+    return;
+  }
+  const criteria = parcial.Criterios || [];
+  const total = criteria.reduce((sum, criterion) => sum + (Number(criterion.porcentaje) || 0), 0);
+  document.getElementById("criteria-popover-title").textContent =
+    `${parcial.Clase} · Parcial ${parcial.Numero}`;
+  document.getElementById("criteria-popover-items").innerHTML = criteria.length
+    ? criteria.map(criterion => {
+      const percentage = Number(criterion.porcentaje) || 0;
+      const width = Math.max(0, Math.min(100, percentage));
+      return `<div class="criteria-popover-item">
+        <div class="criteria-popover-item-head"><span>${h(criterion.nombre || "Criterio sin nombre")}</span><span class="criteria-popover-pct">${percentage}%</span></div>
+        <div class="criteria-popover-track" aria-hidden="true"><div class="criteria-popover-fill" style="width:${width}%;"></div></div>
+      </div>`;
+    }).join("")
+    : `<p class="criteria-popover-empty">Este parcial todavía no tiene criterios.</p>`;
+  const totalBadge = document.getElementById("criteria-popover-total");
+  totalBadge.textContent = `${total}% · ${total === 100 ? "Completo" : "Incompleto"}`;
+  totalBadge.classList.toggle("incomplete", total !== 100);
+  if (activeCriteriaTrigger) activeCriteriaTrigger.setAttribute("aria-expanded", "false");
+  activeCriteriaTrigger = trigger;
+  trigger.setAttribute("aria-expanded", "true");
+  const popover = document.getElementById("criteria-popover");
+  popover.hidden = false;
+  positionCriteriaPopover(trigger);
+}
+
+document.getElementById("criteria-popover-close").addEventListener("click", () => closeCriteriaPopover(true));
+document.addEventListener("click", event => {
+  if (activeCriteriaTrigger && !event.target.closest("#criteria-popover") && !event.target.closest("[data-criteria-parcial]")) {
+    closeCriteriaPopover();
+  }
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && activeCriteriaTrigger) closeCriteriaPopover(true);
+});
+window.addEventListener("resize", () => closeCriteriaPopover());
+window.addEventListener("scroll", event => {
+  if (event.target instanceof Element && event.target.closest("#criteria-popover")) return;
+  closeCriteriaPopover();
+}, true);
+
+document.getElementById("parcial-clase-filter").addEventListener("change", () => {
+  closeCriteriaPopover();
+  renderParciales();
+});
 document.querySelector("#tbl-parciales tbody").addEventListener("click", event => {
-  const button = event.target.closest("[data-copy-parcial]");
-  if (button) openCopyParcialModal(button.dataset.copyParcial);
+  const button = event.target.closest("button");
+  if (!button) return;
+  if (button.hasAttribute("data-criteria-parcial")) {
+    toggleCriteriaPopover(button);
+  } else if (button.hasAttribute("data-edit-parcial")) {
+    editParcial(button.dataset.editParcial);
+  } else if (button.hasAttribute("data-copy-parcial")) {
+    openCopyParcialModal(button.dataset.copyParcial);
+  } else if (button.hasAttribute("data-delete-parcial")) {
+    deleteParcial(button.dataset.deleteParcial);
+  }
 });
 
 // ════════════════════════════════════════
