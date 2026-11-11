@@ -33,8 +33,9 @@ body {
 /* Background checkered flags matching Canva */
 .bg-decoration {
   position: absolute;
-  width: 106px;
-  height: 134px;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
   opacity: 0.12;
   pointer-events: none;
   z-index: 1;

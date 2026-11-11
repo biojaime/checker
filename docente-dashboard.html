@@ -78,8 +78,10 @@
     .claw-toggle svg { width:22px; height:22px; fill:currentColor; }
     @keyframes claw-swipe { 30% { transform:scale(1.12) rotate(-8deg); filter:drop-shadow(0 0 7px #f97316); } 65% { transform:scale(.96) rotate(5deg); } }
     .claw-toggle:hover svg { animation:claw-swipe .42s ease-in-out; }
-    .sidebar-expand-toggle { position:fixed; top:14px; left:14px; z-index:60; display:grid; place-items:center; width:54px; height:54px; padding:0; border:0; border-radius:14px; background:transparent; box-shadow:0 8px 24px rgba(15,23,42,.22); }
-    .sidebar-expand-toggle img { width:100%; height:100%; border-radius:14px; object-fit:cover; }
+    .sidebar-expand-toggle { position:fixed; top:14px; left:14px; z-index:60; display:grid; place-items:center; width:42px; height:42px; padding:0; border:0; border-radius:10px; background:transparent; box-shadow:none; }
+    .sidebar-expand-toggle:hover { border:0; box-shadow:none; }
+    .sidebar-expand-toggle img { width:100%; height:100%; border-radius:10px; object-fit:cover; transition:transform .18s ease; }
+    .sidebar-expand-toggle:hover img { transform:scale(1.06); }
 
     .sidebar-section { padding:1rem 0.85rem 0.4rem; }
     .sidebar-section-label {
@@ -515,6 +517,57 @@
     .criteria-popover-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-top:1px solid #e2e8f0; background:#f8fafc; color:#475569; font-size:.69rem; font-weight:800; text-transform:uppercase; letter-spacing:.35px; }
     .criteria-popover-total { padding:4px 8px; border:1px solid #bbf7d0; border-radius:99px; background:#ecfdf5; color:#15803d; font-size:.7rem; letter-spacing:0; }
     .criteria-popover-total.incomplete { border-color:#fecaca; background:#fef2f2; color:#dc2626; }
+    .grading-card { min-width:0; max-width:100%; overflow:hidden; border:1px solid #e2e8f0; border-radius:22px; box-shadow:0 12px 32px rgba(15,23,42,.055); }
+    .grading-header { display:flex; align-items:center; gap:13px; padding:19px 22px; border-bottom:1px solid #e8edf4; }
+    .grading-header-icon { display:grid; place-items:center; width:43px; height:43px; flex:none; border:1px solid #e0e7ff; border-radius:14px; background:#eef2ff; font-size:1.2rem; }
+    .grading-header h2 { font-size:1.05rem; font-weight:850; letter-spacing:-.02em; }
+    .grading-header p { margin-top:4px; color:var(--muted); font-size:.75rem; }
+    .grading-selectors { display:grid; grid-template-columns:repeat(4,minmax(140px,1fr)) auto; align-items:end; gap:12px; padding:17px 20px; border-bottom:1px solid #e8edf4; background:linear-gradient(180deg,#fff,#fbfcff); }
+    .grading-field { min-width:0; }
+    .grading-field label { color:#64748b; font-size:.67rem; font-weight:800; letter-spacing:.55px; text-transform:uppercase; }
+    .grading-field .fselect { width:100%; min-width:0; margin-top:5px; padding:9px 11px; border-color:#dbe2ed; border-radius:11px; background:#f8fafc; font-size:.79rem; font-weight:650; }
+    .grading-field.criterion-field .fselect { border-color:#c7d2fe; background:#eef2ff; color:#3730a3; }
+    .grading-load-button { min-height:38px; white-space:nowrap; border-radius:11px; }
+    .grading-roster { min-width:0; }
+    .grading-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; padding:15px 20px; border-bottom:1px solid #e8edf4; background:#fff; }
+    .grading-overview { display:grid; gap:4px; min-width:180px; }
+    .grading-overview strong { color:#1e293b; font-size:.82rem; }
+    .grading-overview span { color:#64748b; font-size:.7rem; }
+    .grading-search { position:relative; flex:1; min-width:min(100%,210px); max-width:340px; }
+    .grading-search::before { position:absolute; top:50%; left:11px; content:"🔎"; font-size:.82rem; transform:translateY(-50%); pointer-events:none; }
+    .grading-search input { width:100%; min-height:38px; padding:8px 12px 8px 36px; border:1px solid #dbe2ed; border-radius:11px; background:#f8fafc; color:#1e293b; font:inherit; font-size:.77rem; outline:none; }
+    .grading-search input:focus { border-color:#818cf8; background:#fff; box-shadow:0 0 0 3px rgba(99,102,241,.12); }
+    .grading-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+    .grading-action-button { min-height:36px; padding:8px 11px; border:1px solid #dbe2ed; border-radius:10px; background:#fff; color:#334155; font-size:.72rem; white-space:nowrap; }
+    .grading-action-button:hover { border-color:#a5b4fc; background:#f8faff; color:#4338ca; }
+    .grading-action-save { border-color:#059669; background:#059669; color:#fff; box-shadow:0 5px 12px rgba(5,150,105,.17); }
+    .grading-action-save:hover { border-color:#047857; background:#047857; color:#fff; }
+    .grading-table-wrap { min-width:0; overflow-x:auto; }
+    #tbl-cal { min-width:1040px; }
+    #tbl-cal th { padding:11px 13px; background:#f8fafc; color:#64748b; font-size:.65rem; letter-spacing:.55px; }
+    #tbl-cal td { padding:11px 13px; }
+    #tbl-cal tbody tr { transition:background .15s; }
+    #tbl-cal tbody tr:hover { background:#f8faff; }
+    #tbl-cal tbody tr[hidden],#cal-no-matches[hidden] { display:none !important; }
+    #tbl-cal td:nth-child(2) { min-width:190px; }
+    #tbl-cal td:nth-child(3) { min-width:94px; text-align:center; }
+    #tbl-cal td:nth-child(4),#tbl-cal td:nth-child(5) { min-width:230px; }
+    .grade-student-name { display:block; color:#1e293b; font-size:.79rem; font-weight:800; }
+    .grade-student-group { display:inline-flex; margin-top:4px; padding:2px 7px; border:1px solid #e2e8f0; border-radius:99px; background:#f8fafc; color:#64748b; font-size:.63rem; font-weight:750; }
+    .grade-input { width:76px; min-height:37px; border-radius:10px; font-size:.9rem; }
+    .obs-input { min-height:38px; padding:7px 9px; border-color:#dbe2ed; border-radius:9px; background:#fff; }
+    #tbl-cal [data-mat-evidence] { max-width:210px; font-size:.68rem; }
+    .grading-table-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:12px 18px; border-top:1px solid #e8edf4; background:#f8fafc; }
+    .grading-page-status { color:#64748b; font-size:.72rem; }
+    .grading-page-status strong { color:#334155; }
+    .grading-page-controls { display:flex; align-items:center; gap:7px; }
+    .grading-page-size { display:flex; align-items:center; gap:6px; margin-right:5px; color:#64748b; font-size:.7rem; }
+    .grading-page-size select { padding:5px 7px; border:1px solid #dbe2ed; border-radius:8px; background:#fff; color:#334155; font:inherit; font-weight:750; }
+    .grading-page-button { min-height:31px; padding:5px 10px; border:1px solid #dbe2ed; border-radius:8px; background:#fff; color:#334155; font:inherit; font-size:.69rem; font-weight:750; cursor:pointer; }
+    .grading-page-button:hover:not(:disabled) { border-color:#a5b4fc; background:#eef2ff; color:#4338ca; }
+    .grading-page-button:disabled { opacity:.45; cursor:not-allowed; }
+    .grading-shortcut { padding:9px 16px; border-top:1px dashed #e2e8f0; background:#fff; color:#64748b; font-size:.67rem; }
+    .grading-shortcut kbd { padding:2px 5px; border:1px solid #dbe2ed; border-radius:5px; background:#f8fafc; color:#334155; font:inherit; font-weight:800; }
     @media (max-width:760px) {
       .parciales-header { align-items:flex-start; flex-direction:column; padding:18px 16px; }
       .parciales-controls { width:100%; justify-content:stretch; }
@@ -522,6 +575,14 @@
       .parciales-filter .fselect { min-width:0; width:100%; }
       .parciales-controls > .btn { flex:none; }
       .parciales-footer { align-items:flex-start; flex-direction:column; padding:12px 16px; }
+      .grading-selectors { grid-template-columns:repeat(2,minmax(0,1fr)); padding:14px 15px; }
+      .grading-load-button { width:100%; grid-column:1 / -1; }
+      .grading-toolbar { align-items:stretch; padding:13px 15px; }
+      .grading-overview,.grading-search { max-width:none; }
+      .grading-actions { width:100%; }
+      .grading-actions .btn { flex:1; justify-content:center; }
+      .grading-table-footer { align-items:flex-start; flex-direction:column; }
+      .grading-page-controls { width:100%; justify-content:space-between; }
     }
     @media (max-width:760px) {
       .sidebar { transform:translateX(-100%); width:min(300px,85vw); }
@@ -541,7 +602,7 @@
       .shell.sidebar-collapsed .sidebar-footer { padding:.9rem; }
       .topbar { padding:.8rem 1rem; }
       .page { padding:1rem; }
-      .sidebar-expand-toggle { top:9px; left:9px; width:50px; height:50px; }
+      .sidebar-expand-toggle { top:9px; left:9px; width:42px; height:42px; }
       .home-ranking-columns { grid-template-columns:1fr; }
     }
   </style>
@@ -777,56 +838,79 @@
 
       <!-- ══ PANEL: CALIFICACIONES ══ -->
       <div class="panel" id="panel-calificaciones">
-        <div class="card">
-          <div class="card-header">
-            <h2>✏️ Captura de Calificaciones</h2>
+        <div class="card grading-card">
+          <div class="grading-header">
+            <span class="grading-header-icon" aria-hidden="true">✏️</span>
+            <div>
+              <h2>Captura de Calificaciones</h2>
+              <p>Selecciona materia y periodo, luego registra o importa las calificaciones del grupo.</p>
+            </div>
           </div>
-          <!-- Selectors -->
-          <div style="padding:1rem 1.4rem; border-bottom:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-            <div class="fgroup" style="min-width:180px;">
-              <label>Clase</label>
+          <div class="grading-selectors">
+            <div class="fgroup grading-field">
+              <label for="cal-clase">Clase</label>
               <select class="fselect" id="cal-clase">
                 <option value="">— Selecciona clase —</option>
               </select>
             </div>
-            <div class="fgroup" style="min-width:160px;">
-              <label>Grupo</label>
+            <div class="fgroup grading-field">
+              <label for="cal-grupo">Grupo</label>
               <select class="fselect" id="cal-grupo" disabled>
                 <option value="">— Selecciona grupo —</option>
               </select>
             </div>
-            <div class="fgroup" style="min-width:150px;">
-              <label>Parcial</label>
+            <div class="fgroup grading-field">
+              <label for="cal-parcial">Parcial</label>
               <select class="fselect" id="cal-parcial" disabled>
                 <option value="">— Selecciona parcial —</option>
               </select>
             </div>
-            <div class="fgroup" style="min-width:170px;">
-              <label>Criterio</label>
+            <div class="fgroup grading-field criterion-field">
+              <label for="cal-criterio">Criterio</label>
               <select class="fselect" id="cal-criterio" disabled>
                 <option value="">— Selecciona criterio —</option>
               </select>
             </div>
-            <button class="btn btn-primary btn-lg" id="btn-cargar-alumnos" disabled onclick="cargarAlumnosParaCalificar()">Actualizar alumnos</button>
+            <button class="btn btn-primary btn-lg grading-load-button" id="btn-cargar-alumnos" disabled onclick="cargarAlumnosParaCalificar()">Actualizar alumnos</button>
           </div>
-          <div id="cal-table-wrap" style="display:none;">
-            <div style="padding:0.8rem 1.4rem; background:#fafafa; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-              <span id="cal-info" style="font-size:0.85rem; font-weight:700; color:var(--muted);"></span>
-              <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button class="btn btn-gray" onclick="descargarListaCalificaciones()">Descargar lista</button>
-                <button class="btn btn-gray" onclick="document.getElementById('grades-csv-file').click()">Subir calificaciones</button>
-                <input type="file" id="grades-csv-file" accept=".csv,text/csv" style="display:none;">
-                <button class="btn btn-green btn-lg" id="btn-save-grades" onclick="saveAllGrades()">💾 Guardar todo</button>
+          <div id="cal-table-wrap" class="grading-roster" style="display:none;">
+            <section class="grading-toolbar" aria-label="Herramientas de lista">
+              <div class="grading-overview">
+                <strong id="cal-info" role="status" aria-live="polite"></strong>
+                <span id="cal-visible-summary"></span>
               </div>
-            </div>
-            <div class="table-wrap">
+              <label class="grading-search">
+                <span class="sr-only">Buscar alumno por nombre o matrícula</span>
+                <input id="cal-search" type="search" placeholder="Buscar alumno o matrícula…" autocomplete="off">
+              </label>
+              <div class="grading-actions">
+                <button class="btn grading-action-button" type="button" onclick="descargarListaCalificaciones()">⬇ Descargar CSV</button>
+                <button class="btn grading-action-button" type="button" onclick="document.getElementById('grades-csv-file').click()">⬆ Subir CSV</button>
+                <input type="file" id="grades-csv-file" accept=".csv,text/csv" style="display:none;">
+                <button class="btn grading-action-button grading-action-save" id="btn-save-grades" type="button" onclick="saveAllGrades()">💾 Guardar todo</button>
+              </div>
+            </section>
+            <div class="grading-table-wrap">
               <table class="tbl" id="tbl-cal">
-                <thead><tr>
-                  <th>Matrícula</th><th>Nombre</th><th>Calificación (0–10)</th><th>Observación particular y evidencia</th><th>Comentario general del parcial</th>
-                </tr></thead>
+                <thead><tr><th scope="col">Matrícula</th><th scope="col">Alumno</th><th scope="col">Calificación</th><th scope="col">Observación y evidencia</th><th scope="col">Comentario del parcial</th></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
+            <div class="grading-table-footer">
+              <span class="grading-page-status" id="cal-page-status" role="status" aria-live="polite"></span>
+              <div class="grading-page-controls" aria-label="Paginación de alumnos">
+                <label class="grading-page-size" for="cal-page-size">Alumnos por lista
+                  <select id="cal-page-size">
+                    <option value="10" selected>10</option>
+                    <option value="5">5</option>
+                  </select>
+                </label>
+                <button class="grading-page-button" id="cal-page-prev" type="button" aria-label="Lista anterior">← Anterior</button>
+                <span class="grading-page-status" id="cal-page-number"></span>
+                <button class="grading-page-button" id="cal-page-next" type="button" aria-label="Lista siguiente">Siguiente →</button>
+              </div>
+            </div>
+            <p class="grading-shortcut">En una calificación, presiona <kbd>Tab</kbd> o <kbd>Enter</kbd> para pasar al siguiente alumno; al terminar la lista, continuará en la siguiente.</p>
           </div>
         </div>
       </div>
@@ -1258,6 +1342,8 @@ let gradeSavePromiseResolve = null;
 let gradeChangeVersion = 0;
 let calLoadedContext = null;
 let calPartialComments = {};
+let calPage = 1;
+let calPageSize = 10;
 let activeIndividualReport = null;
 let reportChartInstance = null;
 let advisorReportIncludeAllClasses = false;
@@ -1540,8 +1626,8 @@ function setSidebarCollapsed(collapsed, persist = true) {
   toggle.style.left = collapsed
     ? ""
     : window.innerWidth <= 760
-      ? `${Math.max(9, Math.min(238, window.innerWidth * 0.85 - 62))}px`
-      : "calc(var(--sidebar-w) - 68px)";
+      ? `${Math.max(9, Math.min(246, window.innerWidth * 0.85 - 54))}px`
+      : "calc(var(--sidebar-w) - 54px)";
   toggle.setAttribute("aria-expanded", String(!collapsed));
   toggle.setAttribute("aria-label", collapsed ? "Abrir menú con la Garra" : "Colapsar menú con la Garra");
   toggle.title = collapsed ? "Abrir menú" : "Colapsar menú";
@@ -2561,6 +2647,23 @@ document.getElementById("grades-csv-file").addEventListener("change", e => {
   importarCalificacionesCSV(e.target.files[0]);
   e.target.value = "";
 });
+document.getElementById("cal-search").addEventListener("input", () => {
+  calPage = 1;
+  updateCalRosterPagination();
+});
+document.getElementById("cal-page-size").addEventListener("change", e => {
+  calPageSize = Number(e.target.value) || 10;
+  calPage = 1;
+  updateCalRosterPagination();
+});
+document.getElementById("cal-page-prev").addEventListener("click", () => {
+  calPage--;
+  updateCalRosterPagination({ focusFirst: true });
+});
+document.getElementById("cal-page-next").addEventListener("click", () => {
+  calPage++;
+  updateCalRosterPagination({ focusFirst: true });
+});
 document.getElementById("mt-clase").addEventListener("change", populateTareaModalOptions);
 document.getElementById("mp-clase").addEventListener("change", e => {
   if (!document.getElementById("mp-id").value) {
@@ -2683,6 +2786,8 @@ async function cargarAlumnosParaCalificar() {
     calAlumnos = snap.docs.map(d => ({ id:d.id, ...d.data() }));
     calAlumnos.sort((a,b) => nombreListaAlumno(a).localeCompare(nombreListaAlumno(b), "es", { sensitivity:"base" }));
     calLoadedContext = { clase, parcialId, criterio, grupo };
+    calPage = 1;
+    document.getElementById("cal-search").value = "";
 
     // Load existing grades for this parcial+criterio
     const existingSnap = await db.collection("Calificaciones")
@@ -2706,25 +2811,80 @@ async function cargarAlumnosParaCalificar() {
     tbody.innerHTML = calAlumnos.map(a => {
       const mat  = a.Matricula || a.id;
       const exst = existing[mat] || {};
-      return `<tr>
+      const studentName = nombreListaAlumno(a) || "—";
+      const searchText = `${mat} ${studentName}`.toLocaleLowerCase("es");
+      return `<tr class="grade-row" data-student-search="${h(searchText)}">
         <td><code style="font-weight:800;color:var(--indigo);">${h(mat)}</code></td>
-        <td><strong>${h(nombreListaAlumno(a)||"—")}</strong> <span class="chip chip-gray" style="font-size:0.7rem;">${a.Grado||""}° ${a.Grupo||""}</span></td>
-        <td><input class="grade-input" type="number" min="0" max="10" step="0.1" data-mat="${mat}" data-has-record="${Boolean(Object.keys(exst).length)}" value="${exst.Calificacion ?? ""}" placeholder="—"></td>
+        <td><strong class="grade-student-name">${h(studentName)}</strong><span class="grade-student-group">${h(a.Grado || "")}° ${h(a.Grupo || "")}</span></td>
+        <td><input class="grade-input" type="number" min="0" max="10" step="0.1" data-mat="${h(mat)}" data-has-record="${Boolean(Object.keys(exst).length)}" value="${h(exst.Calificacion ?? "")}" placeholder="—" aria-label="Calificación de ${h(studentName)}"></td>
         <td>
-          <textarea class="obs-input" data-mat-obs="${mat}" placeholder="Observación de este criterio…">${h(exst.Observaciones||"")}</textarea>
-          <div class="evidence-links" data-evidence-links="${mat}" style="font-size:.76rem;margin:4px 0;">${renderEvidenceLinks(exst.Evidencias||[])}</div>
-          <input type="file" accept="image/*" multiple data-mat-evidence="${mat}" aria-label="Subir evidencia de ${h(criterio)}">
+          <textarea class="obs-input" data-mat-obs="${h(mat)}" placeholder="Observación de este criterio…">${h(exst.Observaciones||"")}</textarea>
+          <div class="evidence-links" data-evidence-links="${h(mat)}" style="font-size:.76rem;margin:4px 0;">${renderEvidenceLinks(exst.Evidencias||[])}</div>
+          <input type="file" accept="image/*" multiple data-mat-evidence="${h(mat)}" aria-label="Subir evidencia de ${h(criterio)}">
         </td>
-        <td><textarea class="obs-input partial-comment" data-mat-com="${mat}" placeholder="Un comentario para todo el parcial…">${h(calPartialComments[mat]||"")}</textarea></td>
+        <td><textarea class="obs-input partial-comment" data-mat-com="${h(mat)}" placeholder="Un comentario para todo el parcial…">${h(calPartialComments[mat]||"")}</textarea></td>
       </tr>`;
     }).join("") || `<tr class="tbl-empty"><td colspan="5">No se encontraron alumnos de grado ${grado||"cualquiera"}</td></tr>`;
+    tbody.insertAdjacentHTML("beforeend", `<tr class="tbl-empty" id="cal-no-matches" hidden><td colspan="5">No hay alumnos que coincidan con la búsqueda.</td></tr>`);
 
     document.getElementById("cal-table-wrap").style.display = "block";
+    updateCalRosterPagination();
   } catch(e) { toast("Error: " + e.message, "err"); }
   btn.disabled = false; btn.innerHTML = "Actualizar alumnos";
 }
 
 // ─── SAVE ALL GRADES ───
+function normalizarBusquedaAlumno(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").trim();
+}
+
+function updateCalRosterPagination({ focusFirst = false } = {}) {
+  const tbody = document.querySelector("#tbl-cal tbody");
+  const search = normalizarBusquedaAlumno(document.getElementById("cal-search").value);
+  const rows = [...tbody.querySelectorAll(".grade-row")];
+  const filteredRows = rows.filter(row => normalizarBusquedaAlumno(row.dataset.studentSearch).includes(search));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / calPageSize));
+  calPage = Math.min(Math.max(1, calPage), totalPages);
+  const start = (calPage - 1) * calPageSize;
+  const visibleRows = filteredRows.slice(start, start + calPageSize);
+  const visibleSet = new Set(visibleRows);
+
+  rows.forEach(row => { row.hidden = !visibleSet.has(row); });
+  const noMatches = document.getElementById("cal-no-matches");
+  noMatches.hidden = filteredRows.length > 0 || rows.length === 0;
+
+  const firstResult = filteredRows.length ? start + 1 : 0;
+  const lastResult = Math.min(start + calPageSize, filteredRows.length);
+  document.getElementById("cal-visible-summary").textContent = search
+    ? `${filteredRows.length} coincidencia(s) de ${rows.length} alumno(s)`
+    : `${rows.length} alumno(s) en el grupo`;
+  document.getElementById("cal-page-status").innerHTML =
+    `Mostrando <strong>${firstResult}–${lastResult}</strong> de <strong>${filteredRows.length}</strong>`;
+  document.getElementById("cal-page-number").textContent = `${calPage} / ${totalPages}`;
+  document.getElementById("cal-page-prev").disabled = calPage <= 1;
+  document.getElementById("cal-page-next").disabled = calPage >= totalPages;
+
+  if (focusFirst) visibleRows[0]?.querySelector(".grade-input")?.focus();
+}
+
+function moveToNextGradeInput(input) {
+  const visibleInputs = [...document.querySelectorAll("#tbl-cal tbody .grade-row:not([hidden]) .grade-input")];
+  const currentIndex = visibleInputs.indexOf(input);
+  if (currentIndex >= 0 && currentIndex < visibleInputs.length - 1) {
+    visibleInputs[currentIndex + 1].focus();
+    return true;
+  }
+  const visibleMatches = [...document.querySelectorAll("#tbl-cal tbody .grade-row")]
+    .filter(row => normalizarBusquedaAlumno(row.dataset.studentSearch)
+      .includes(normalizarBusquedaAlumno(document.getElementById("cal-search").value)));
+  if (calPage < Math.ceil(visibleMatches.length / calPageSize)) {
+    calPage++;
+    updateCalRosterPagination({ focusFirst: true });
+    return true;
+  }
+  return false;
+}
+
 function nombreListaAlumno(alumno) {
   const apellidos = [alumno.ApellidoPaterno, alumno.ApellidoMaterno].filter(Boolean).join(" ").trim();
   const nombres = alumno.Nombres || alumno.Nombre || "";
@@ -2743,6 +2903,11 @@ document.querySelector("#tbl-cal tbody").addEventListener("input", e => {
     gradeChangeVersion++;
     programarGuardadoCalificaciones();
   }
+});
+document.querySelector("#tbl-cal tbody").addEventListener("keydown", e => {
+  if (!e.target.matches(".grade-input") || e.shiftKey || !["Tab", "Enter"].includes(e.key)) return;
+  const moved = moveToNextGradeInput(e.target);
+  if (e.key === "Enter" || moved) e.preventDefault();
 });
 document.querySelector("#tbl-cal tbody").addEventListener("change", e => {
   if (e.target.matches("[data-mat-evidence]")) subirEvidencias(e.target);
