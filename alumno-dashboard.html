@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MaderoChecker – Portal del Alumno</title>
   <link rel="icon" type="image/png" href="ICONO%20Madero.png">
-  <link rel="apple-touch-icon" href="ICONO%20Madero.png">
+  <link rel="apple-touch-icon" href="pwa-icon-192.png">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
   <style>
@@ -73,6 +73,26 @@
     .student-notice small, .teacher-email { display: block; color: #687078; margin-top: 4px; overflow-wrap: anywhere; }
     .teacher-name { font-weight: 800; }
     .teacher-classes, .partial-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; margin-top: 10px; }
+    .dash-actions { display:flex; flex-wrap:wrap; gap:9px; }
+    .dash-action { min-height:40px; padding:9px 13px; border:1px solid rgba(255,255,255,.32); border-radius:10px; background:rgba(255,255,255,.15); color:#fff; font:inherit; font-size:.78rem; font-weight:800; cursor:pointer; }
+    .dash-action:hover { background:rgba(255,255,255,.25); }
+    .appointment-open { margin-top:10px; padding:7px 10px; border:1px solid #d8dbe5; border-radius:8px; background:#fff; color:#50319d; font:inherit; font-size:.74rem; font-weight:800; cursor:pointer; }
+    .appointment-open:hover { border-color:#855de6; background:#f8f5ff; }
+    .appointment-panel { margin-top:12px; padding:13px; border:1px solid #e3dcf8; border-radius:11px; background:#fbfaff; }
+    .appointment-panel[hidden],.appointment-form[hidden] { display:none; }
+    .appointment-subjects { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:7px; margin:9px 0 12px; }
+    .appointment-subject { min-height:38px; padding:7px 10px; border:1px solid #d8dbe5; border-radius:8px; background:#fff; color:#303345; font:inherit; font-size:.73rem; font-weight:750; cursor:pointer; text-align:left; }
+    .appointment-subject[aria-pressed="true"] { border-color:#6743c2; background:#f0eaff; color:#50319d; }
+    .appointment-schedule { margin:8px 0; color:#5b4b82; font-size:.74rem; white-space:pre-line; }
+    .appointment-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .appointment-form label { display:grid; gap:4px; color:#5e6473; font-size:.7rem; font-weight:750; }
+    .appointment-form input,.appointment-form select,.appointment-form textarea { width:100%; min-height:38px; padding:8px 9px; border:1px solid #d8dbe5; border-radius:8px; background:#fff; color:#303345; font:inherit; font-size:.76rem; }
+    .appointment-form textarea { min-height:74px; grid-column:1 / -1; resize:vertical; }
+    .appointment-form button,.appointment-form [data-appointment-status] { grid-column:1 / -1; }
+    .appointment-form [data-appointment-status] { min-height:18px; color:#5e6473; font-size:.72rem; }
+    .appointment-state { display:inline-flex; padding:3px 8px; border-radius:99px; background:#fef3c7; color:#92400e; font-size:.67rem; font-weight:800; }
+    .appointment-state.confirmada { background:#dcfce7; color:#166534; }
+    .appointment-state.cancelada { background:#fee2e2; color:#991b1b; }
     .student-choice { min-height: 44px; border: 1px solid #d8dbe5; border-radius: 7px; background: #fff; color: #303345; padding: 9px 12px; font: inherit; font-weight: 700; cursor: pointer; text-align: left; transition: border-color 0.15s, background 0.15s, color 0.15s; }
     .student-choice:hover { border-color: #855de6; background: #f8f5ff; }
     .student-choice[aria-pressed="true"] { border-color: #6743c2; background: #f0eaff; color: #50319d; box-shadow: inset 3px 0 #6743c2; }
@@ -114,6 +134,7 @@
       .student-list { padding: 0.2rem 1rem; }
       .student-report-grid { grid-template-columns: 1fr; }
       .student-chart-wrap { height: 210px; }
+      .appointment-form { grid-template-columns:1fr; }
     }
 
     table.stbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -161,9 +182,19 @@
       <div class="info-item"><span class="info-label">Grupo</span><span class="info-value" id="ui-grupo">—</span></div>
     </div>
 
+    <div class="dash-actions">
+      <button class="dash-action" type="button" data-notification-permission>🔔 Activar notificaciones</button>
+      <button class="dash-action" type="button" data-pwa-install>📲 Instalar app</button>
+    </div>
+
     <div class="subjects-card">
       <div class="subjects-card-head">🔔 Notificaciones</div>
       <div class="student-list" id="notifications-content">Cargando notificaciones…</div>
+    </div>
+
+    <div class="subjects-card">
+      <div class="subjects-card-head">📅 Mis solicitudes de cita</div>
+      <div class="student-list" id="student-appointment-notifications">Cargando citas…</div>
     </div>
 
     <div class="subjects-card">
@@ -188,6 +219,16 @@
     let studentTeachers = [];
     let studentGradeRecords = [];
     let studentReportChart = null;
+    let studentAppointmentUnsubscribe = null;
+    let seenStudentAppointmentIds = null;
+
+    const APPOINTMENT_DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+    const APPOINTMENT_SLOTS = [
+      { start: "7:00", end: "7:50" }, { start: "7:50", end: "8:40" }, { start: "8:40", end: "9:30" },
+      { start: "10:00", end: "10:50" }, { start: "10:50", end: "11:40" }, { start: "11:40", end: "12:30" },
+      { start: "12:50", end: "13:35" }, { start: "13:35", end: "14:20" }, { start: "14:20", end: "14:50" }
+    ];
+    const APPOINTMENT_WEEKDAYS = ["Domingo", ...APPOINTMENT_DAYS, "Sábado"];
 
     // ── Subject catalogue (official) ─────
     const SUBJECTS = {
@@ -296,6 +337,7 @@
         }));
         renderTeacherList();
         renderNotifications();
+        listenForStudentAppointments();
       } catch (error) {
         teachersContent.textContent = "No se pudieron cargar tus maestros: " + error.message;
         notificationsContent.textContent = "No se pudieron cargar las notificaciones.";
@@ -313,8 +355,176 @@
           <div class="teacher-name">${escapeHtml(teacher.Nombre || "Docente")}</div>
           ${teacher.Correo ? `<a class="teacher-email" href="mailto:${encodeURIComponent(teacher.Correo)}">${escapeHtml(teacher.Correo)}</a>` : `<small class="teacher-email">Correo no registrado</small>`}
           <div class="teacher-classes">${teacher.classes.map((classEntry, classIndex) => `<button type="button" class="student-choice" data-class-index="${classIndex}" aria-pressed="false">${escapeHtml(classEntry.subject)}</button>`).join("")}</div>
+          <button type="button" class="appointment-open" data-appointment-open>📅 Solicitar cita con el docente</button>
+          <div class="appointment-panel" data-appointment-panel hidden>
+            <strong>Elige la materia</strong>
+            <div class="appointment-subjects">${teacher.classes.map((classEntry, classIndex) => `<button type="button" class="appointment-subject" data-appointment-class-index="${classIndex}" aria-pressed="false">${escapeHtml(classEntry.subject)}</button>`).join("")}</div>
+            <p class="appointment-schedule" data-appointment-schedule>Selecciona una materia para ver los horarios disponibles.</p>
+            <form class="appointment-form" data-appointment-form hidden>
+              <label>Fecha de la cita<input type="date" data-appointment-date min="${getLocalDateString()}"></label>
+              <label>Horario disponible<select data-appointment-slot required><option value="">Selecciona fecha y horario</option></select></label>
+              <label>Motivo de la cita<textarea data-appointment-reason required maxlength="1000" placeholder="Describe brevemente el motivo de la cita."></textarea></label>
+              <button type="submit" class="appointment-open" data-appointment-submit>Enviar solicitud</button>
+              <span data-appointment-status role="status" aria-live="polite"></span>
+            </form>
+          </div>
           <div class="partial-list" hidden></div>
         </section>`).join("");
+    }
+
+    function getLocalDateString(date = new Date()) {
+      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return local.toISOString().slice(0, 10);
+    }
+
+    function updateAppointmentSlots(teacherRow) {
+      const panel = teacherRow.querySelector("[data-appointment-panel]");
+      const classIndex = Number(panel.dataset.selectedClassIndex);
+      const teacher = studentTeachers[Number(teacherRow.dataset.teacherIndex)];
+      const classEntry = teacher?.classes[classIndex];
+      const dateInput = panel.querySelector("[data-appointment-date]");
+      const slotSelect = panel.querySelector("[data-appointment-slot]");
+      const schedule = panel.querySelector("[data-appointment-schedule]");
+      const form = panel.querySelector("[data-appointment-form]");
+      const dateValue = dateInput.value;
+      slotSelect.innerHTML = `<option value="">Selecciona fecha y horario</option>`;
+      if (!classEntry) return;
+      form.hidden = false;
+      if (!dateValue) {
+        schedule.textContent = "Selecciona una fecha para consultar los horarios disponibles.";
+        return;
+      }
+      const date = new Date(`${dateValue}T12:00:00`);
+      const day = APPOINTMENT_WEEKDAYS[date.getDay()];
+      const availableSlots = Array.isArray(teacher.HorariosAtencion?.[day])
+        ? [...new Set(teacher.HorariosAtencion[day].map(Number))].filter(index => Number.isInteger(index) && index >= 0 && index < APPOINTMENT_SLOTS.length)
+        : [];
+      schedule.textContent = availableSlots.length
+        ? `${day}: elige uno de los horarios autorizados por el docente.`
+        : `El docente no tiene horarios disponibles para ${day}.`;
+      availableSlots.forEach(index => {
+        const slot = APPOINTMENT_SLOTS[index];
+        const option = document.createElement("option");
+        option.value = String(index);
+        option.textContent = `${slot.start}–${slot.end}`;
+        slotSelect.appendChild(option);
+      });
+    }
+
+    async function submitAppointmentRequest(teacherRow, form) {
+      const teacherIndex = Number(teacherRow.dataset.teacherIndex);
+      const teacher = studentTeachers[teacherIndex];
+      const panel = form.closest("[data-appointment-panel]");
+      const classIndex = Number(panel.dataset.selectedClassIndex);
+      const classEntry = teacher?.classes[classIndex];
+      const dateValue = form.querySelector("[data-appointment-date]").value;
+      const slotValue = form.querySelector("[data-appointment-slot]").value;
+      const reason = form.querySelector("[data-appointment-reason]").value.trim();
+      const status = form.querySelector("[data-appointment-status]");
+      const studentEmail = String(alumnoProfile?.Correo || "").trim();
+      if (!classEntry || !dateValue || !slotValue || !reason) {
+        status.textContent = "Completa la materia, fecha, horario y motivo.";
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(studentEmail)) {
+        status.textContent = "Tu perfil no tiene un correo válido; solicita al administrador que lo actualice.";
+        return;
+      }
+      const date = new Date(`${dateValue}T12:00:00`);
+      if (dateValue < getLocalDateString()) {
+        status.textContent = "Selecciona una fecha de hoy o posterior.";
+        return;
+      }
+      const day = APPOINTMENT_WEEKDAYS[date.getDay()];
+      const slotIndex = Number(slotValue);
+      const configuredSlots = teacher.HorariosAtencion?.[day] || [];
+      if (!configuredSlots.map(Number).includes(slotIndex)) {
+        status.textContent = "Ese horario ya no está disponible. Selecciona otra fecha u horario.";
+        updateAppointmentSlots(teacherRow);
+        return;
+      }
+      const slot = APPOINTMENT_SLOTS[slotIndex];
+      if (dateValue === getLocalDateString()) {
+        const [startHour, startMinute] = slot.start.split(":").map(Number);
+        const now = new Date();
+        if (now.getHours() * 60 + now.getMinutes() >= startHour * 60 + startMinute) {
+          status.textContent = "Ese horario ya comenzó. Selecciona uno posterior.";
+          return;
+        }
+      }
+      const button = form.querySelector("[data-appointment-submit]");
+      button.disabled = true;
+      status.textContent = "Enviando solicitud…";
+      try {
+        await db.collection("SolicitudesCitas").add({
+          DocenteId: teacher.id,
+          DocenteNombre: teacher.Nombre || "Docente",
+          DocenteCorreo: teacher.Correo || "",
+          AlumnoMatricula: String(alumnoProfile.Matricula || MATRICULA),
+          AlumnoNombre: alumnoProfile.Nombre || sessionStorage.getItem("fullName") || "Alumno",
+          AlumnoCorreo: studentEmail,
+          Grado: String(alumnoProfile.Grado || ""),
+          Grupo: String(alumnoProfile.Grupo || ""),
+          Clase: classEntry.name,
+          Fecha: dateValue,
+          Dia: day,
+          Horario: `${slot.start}–${slot.end}`,
+          SlotIndex: slotIndex,
+          Motivo: reason,
+          Estado: "pendiente",
+          FechaSolicitud: new Date().toISOString()
+        });
+        status.textContent = "Solicitud enviada. Recibirás una notificación cuando el docente confirme.";
+        form.reset();
+        form.querySelector("[data-appointment-date]").min = getLocalDateString();
+        updateAppointmentSlots(teacherRow);
+      } catch (error) {
+        status.textContent = "No se pudo enviar la solicitud. Intenta de nuevo.";
+        showToast("No se pudo enviar tu solicitud de cita.", "error");
+        console.error("Error enviando solicitud de cita:", error);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function renderStudentAppointments(snapshot) {
+      const container = document.getElementById("student-appointment-notifications");
+      const appointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => String(b.FechaSolicitud || "").localeCompare(String(a.FechaSolicitud || "")));
+      container.innerHTML = appointments.length ? appointments.map(appointment => {
+        const status = String(appointment.Estado || "pendiente");
+        const statusLabel = status === "confirmada" ? "Confirmada" : status === "cancelada" ? "No aceptada" : "Pendiente";
+        const dateLabel = appointment.Fecha ? new Date(`${appointment.Fecha}T12:00:00`).toLocaleDateString("es-MX", { dateStyle: "long" }) : "";
+        return `<div class="student-notice"><strong>${escapeHtml(appointment.Clase || "Cita")} · ${escapeHtml(appointment.DocenteNombre || "Docente")}</strong>
+          <small>${escapeHtml(dateLabel)} · ${escapeHtml(appointment.Dia || "")} · ${escapeHtml(appointment.Horario || "")}</small>
+          <small>Motivo: ${escapeHtml(appointment.Motivo || "—")}</small>
+          <span class="appointment-state ${status}">${statusLabel}</span></div>`;
+      }).join("") : "Aún no has solicitado citas.";
+    }
+
+    function listenForStudentAppointments() {
+      studentAppointmentUnsubscribe?.();
+      const matricula = String(alumnoProfile?.Matricula || MATRICULA);
+      studentAppointmentUnsubscribe = db.collection("SolicitudesCitas")
+        .where("AlumnoMatricula", "==", matricula)
+        .onSnapshot(snapshot => {
+          renderStudentAppointments(snapshot);
+          if (seenStudentAppointmentIds !== null) {
+            snapshot.docChanges().forEach(change => {
+              const appointment = change.doc.data();
+              if (change.type === "modified" && appointment.Estado === "confirmada") {
+                window.showMaderoNotification?.("Cita confirmada", {
+                  body: `${appointment.Clase} · ${appointment.Fecha} · ${appointment.Horario}`,
+                  data: { url: "./alumno-dashboard.html" },
+                  tag: `cita-${change.doc.id}`
+                }).catch(error => console.error("No se pudo mostrar la notificación de cita confirmada:", error));
+              }
+            });
+          }
+          seenStudentAppointmentIds = new Set(snapshot.docs.map(doc => doc.id));
+        }, error => {
+          document.getElementById("student-appointment-notifications").textContent = "No se pudieron cargar las citas: " + error.message;
+        });
     }
 
     function renderNotifications() {
@@ -460,12 +670,27 @@
     }
 
     document.getElementById("teachers-content").addEventListener("click", event => {
+      const appointmentOpen = event.target.closest("[data-appointment-open]");
+      const appointmentClass = event.target.closest("[data-appointment-class-index]");
       const classButton = event.target.closest("button[data-class-index]");
       const partialButton = event.target.closest("[data-partial-number]");
       const teacherRow = event.target.closest("[data-teacher-index]");
       if (!teacherRow) return;
       const teacher = studentTeachers[Number(teacherRow.dataset.teacherIndex)];
-      if (classButton) {
+      if (appointmentOpen) {
+        const panel = teacherRow.querySelector("[data-appointment-panel]");
+        panel.hidden = !panel.hidden;
+        return;
+      } else if (appointmentClass) {
+        const panel = teacherRow.querySelector("[data-appointment-panel]");
+        panel.dataset.selectedClassIndex = appointmentClass.dataset.appointmentClassIndex;
+        panel.querySelectorAll("[data-appointment-class-index]").forEach(button =>
+          button.setAttribute("aria-pressed", String(button === appointmentClass))
+        );
+        panel.querySelector("[data-appointment-form]").hidden = false;
+        panel.querySelector("[data-appointment-date]").min = getLocalDateString();
+        updateAppointmentSlots(teacherRow);
+      } else if (classButton) {
         const classEntry = teacher.classes[Number(classButton.dataset.classIndex)];
         teacherRow.querySelectorAll("[data-class-index]").forEach(button => button.setAttribute("aria-pressed", String(button === classButton)));
         const partialList = teacherRow.querySelector(".partial-list");
@@ -484,6 +709,16 @@
         teacherRow.querySelectorAll("[data-partial-number]").forEach(button => button.setAttribute("aria-pressed", String(button === partialButton)));
         renderStudentReport(partialList, teacher, classEntry, Number(partialButton.dataset.partialNumber), partialButton.dataset.partialId);
       }
+    });
+    document.getElementById("teachers-content").addEventListener("change", event => {
+      if (!event.target.matches("[data-appointment-date]")) return;
+      updateAppointmentSlots(event.target.closest("[data-teacher-index]"));
+    });
+    document.getElementById("teachers-content").addEventListener("submit", event => {
+      const form = event.target.closest("[data-appointment-form]");
+      if (!form) return;
+      event.preventDefault();
+      submitAppointmentRequest(form.closest("[data-teacher-index]"), form);
     });
 
     document.getElementById("btn-logout").onclick = () => { sessionStorage.clear(); location.href = "index.html"; };

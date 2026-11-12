@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MaderoChecker – Portal Docente</title>
   <link rel="icon" type="image/png" href="ICONO%20Madero.png">
-  <link rel="apple-touch-icon" href="ICONO%20Madero.png">
+  <link rel="apple-touch-icon" href="pwa-icon-192.png">
   <link rel="manifest" href="manifest.json">
+  <script>
+    const savedThemeUser = sessionStorage.getItem("username") || "guest";
+    document.documentElement.dataset.theme = localStorage.getItem(`madero-theme-${savedThemeUser}`) === "dark" ? "dark" : "light";
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -82,6 +86,9 @@
     .sidebar-expand-toggle:hover { border:0; box-shadow:none; }
     .sidebar-expand-toggle img { width:100%; height:100%; border-radius:10px; object-fit:cover; transition:transform .18s ease; }
     .sidebar-expand-toggle:hover img { transform:scale(1.06); }
+    .sidebar-utility { display:flex; align-items:center; gap:9px; width:100%; margin-bottom:7px; padding:.45rem .55rem; border:0; border-radius:10px; background:transparent; color:rgba(255,255,255,.75); text-align:left; font:inherit; font-size:.75rem; font-weight:700; cursor:pointer; }
+    .sidebar-utility:hover { background:rgba(255,255,255,.08); color:#fff; }
+    .sidebar-utility-icon { display:grid; place-items:center; width:34px; height:34px; flex:none; border-radius:9px; background:rgba(255,255,255,.1); font-size:1rem; }
 
     .sidebar-section { padding:1rem 0.85rem 0.4rem; }
     .sidebar-section-label {
@@ -156,6 +163,9 @@
     .shell.sidebar-collapsed .nav-icon { width:42px; height:42px; }
     .shell.sidebar-collapsed .sidebar-footer { padding:.65rem .45rem; }
     .shell.sidebar-collapsed .teacher-card { justify-content:center; padding:.45rem; }
+    .shell.sidebar-collapsed .sidebar-utility { justify-content:center; padding:.35rem 0; }
+    .shell.sidebar-collapsed .sidebar-utility-label { display:none; }
+    .shell.sidebar-collapsed .sidebar-utility-icon { width:42px; height:42px; }
     .shell.sidebar-collapsed .btn-logout { overflow:hidden; height:38px; font-size:0; }
     .shell.sidebar-collapsed .btn-logout::before { content:"↪"; font-size:1rem; }
     .topbar {
@@ -568,6 +578,79 @@
     .grading-page-button:disabled { opacity:.45; cursor:not-allowed; }
     .grading-shortcut { padding:9px 16px; border-top:1px dashed #e2e8f0; background:#fff; color:#64748b; font-size:.67rem; }
     .grading-shortcut kbd { padding:2px 5px; border:1px solid #dbe2ed; border-radius:5px; background:#f8fafc; color:#334155; font:inherit; font-weight:800; }
+    .report-editor-controls { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin:7px 0; }
+    .report-editor-command { min-width:34px; min-height:32px; padding:5px 9px; border:1px solid #dbe2ed; border-radius:8px; background:#fff; color:#334155; font:inherit; font-size:.78rem; font-weight:750; cursor:pointer; }
+    .report-editor-command:hover { border-color:#a5b4fc; background:#eef2ff; color:#4338ca; }
+    #advisor-report-editor { min-height:220px; padding:12px; border:1px solid #dbe2ed; border-radius:11px; background:#fff; color:#1e293b; line-height:1.55; outline:none; white-space:pre-wrap; overflow-wrap:anywhere; }
+    #advisor-report-editor:focus { border-color:#818cf8; box-shadow:0 0 0 3px rgba(99,102,241,.12); }
+    #advisor-report-editor[hidden],#advisor-report-preview[hidden] { display:none; }
+    .advisor-report-card { border-radius:20px; }
+    .advisor-report-header { padding:20px 24px; background:linear-gradient(115deg,#eef2ff,#fff 70%); }
+    .advisor-report-header p { margin-top:5px; color:var(--muted); font-size:.75rem; }
+    .advisor-report-form { display:grid; gap:15px; padding:20px 24px !important; }
+    .advisor-report-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:12px; }
+    .advisor-report-fields .fgroup { min-width:0 !important; }
+    .advisor-report-form > .fgroup { margin-top:0 !important; }
+    .advisor-report-form #advisor-report-reason { min-height:125px; resize:vertical; }
+    .advisor-report-form #advisor-report-preview { min-height:220px; padding:14px; border-color:#dbe2ed; border-radius:12px; background:#f8fafc; font-size:.79rem; line-height:1.55; }
+    .advisor-report-form #btn-send-advisor-report { justify-self:start; min-width:220px; }
+    .class-panel { padding:.9rem; }
+    .class-panel-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:.25rem .4rem .8rem; }
+    .class-panel-heading h2 { font-size:1.06rem; font-weight:850; }
+    .class-panel-heading p { margin-top:4px; color:var(--muted); font-size:.75rem; }
+    .classes-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr)); gap:.8rem; padding:.4rem; }
+    .class-card { padding:1rem; cursor:default; border-radius:16px; }
+    .class-card:hover { transform:none; }
+    .class-card-heading { position:relative; z-index:1; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .class-card-heading .class-name { margin:0; }
+    .class-card-heading .class-grade { margin-top:3px; }
+    .class-card-total { padding:5px 8px; border-radius:9px; background:rgba(255,255,255,.17); text-align:center; font-size:.68rem; font-weight:700; white-space:nowrap; }
+    .class-groups { position:relative; z-index:1; display:grid; gap:7px; margin-top:13px; }
+    .class-group-row { display:flex; align-items:center; justify-content:space-between; gap:9px; padding:8px; border:1px solid rgba(255,255,255,.17); border-radius:10px; background:rgba(15,23,42,.12); }
+    .class-group-info { min-width:0; }
+    .class-group-info strong { display:block; font-size:.74rem; }
+    .class-group-info small { display:block; margin-top:2px; opacity:.78; font-size:.66rem; }
+    .class-group-row .class-btn { flex:none; min-height:31px; padding:5px 9px; }
+    .class-card-links { position:relative; z-index:1; display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
+    .class-card-links .class-btn { padding:5px 9px; font-size:.7rem; }
+    .classroom-frame-wrap { height:min(66vh,650px); min-height:280px; border:1px solid var(--border); border-radius:11px; overflow:hidden; background:#f8fafc; }
+    .classroom-frame-wrap iframe { width:100%; height:100%; border:0; background:#fff; }
+    .classroom-frame-note { margin-top:8px; color:var(--muted); font-size:.74rem; }
+    .appointment-request-card { margin-top:1.2rem; }
+    .appointment-request { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; padding:13px 15px; border-bottom:1px solid var(--border); }
+    .appointment-request:last-child { border-bottom:0; }
+    .appointment-request p { margin-top:4px; color:var(--muted); font-size:.76rem; white-space:pre-wrap; }
+    .appointment-request-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:7px; }
+    .appointment-status { display:inline-flex; margin-top:5px; padding:3px 7px; border-radius:99px; background:#fef3c7; color:#92400e; font-size:.65rem; font-weight:800; }
+    .appointment-status.confirmada { background:#dcfce7; color:#166534; }
+    .appointment-status.cancelada { background:#fee2e2; color:#991b1b; }
+    .html-dark-spacer { display:none; }
+    html[data-theme="dark"] { color-scheme:dark; --main-bg:#0b1220; --card-bg:#111827; --border:#263449; --text:#e5e7eb; --muted:#9ca3af; --indigo-light:#312e81; --teal-light:#134e4a; --amber-light:#78350f; --red-light:#7f1d1d; --green-light:#14532d; }
+    html[data-theme="dark"] body { background:var(--main-bg); color:var(--text); }
+    html[data-theme="dark"] .topbar,html[data-theme="dark"] .card,html[data-theme="dark"] .stat-card,html[data-theme="dark"] .modal,
+    html[data-theme="dark"] .criteria-popover,html[data-theme="dark"] .grading-card { background:#111827; color:var(--text); border-color:var(--border); }
+    html[data-theme="dark"] .card-header,html[data-theme="dark"] .grading-header,html[data-theme="dark"] .grading-toolbar,
+    html[data-theme="dark"] .grading-selectors,html[data-theme="dark"] .grading-table-footer,html[data-theme="dark"] .grading-shortcut,
+    html[data-theme="dark"] .criteria-popover-head,html[data-theme="dark"] .criteria-popover-foot,html[data-theme="dark"] .modal-foot { background:#172235; border-color:var(--border); }
+    html[data-theme="dark"] .topbar-title,html[data-theme="dark"] .card-header h2,html[data-theme="dark"] .grading-header h2,
+    html[data-theme="dark"] .grading-overview strong,html[data-theme="dark"] .grade-student-name,html[data-theme="dark"] .modal-head h3 { color:var(--text); }
+    html[data-theme="dark"] .fselect,html[data-theme="dark"] .finput,html[data-theme="dark"] .ftextarea,html[data-theme="dark"] .obs-input,
+    html[data-theme="dark"] .grading-search input,html[data-theme="dark"] .grading-page-size select,html[data-theme="dark"] .report-editor-command,
+    html[data-theme="dark"] #advisor-report-editor { background:#0b1220; border-color:#334155; color:var(--text); }
+    html[data-theme="dark"] .grading-field .fselect,html[data-theme="dark"] .grading-field.criterion-field .fselect { background:#172235; color:var(--text); }
+    html[data-theme="dark"] .grading-page-button { background:#172235; border-color:#334155; color:var(--text); }
+    html[data-theme="dark"] .grading-page-button:hover:not(:disabled),html[data-theme="dark"] .report-editor-command:hover { background:#312e81; color:#e0e7ff; }
+    html[data-theme="dark"] .tbl th,html[data-theme="dark"] .availability-table thead th,html[data-theme="dark"] .availability-table tbody th { background:#172235; color:#cbd5e1; }
+    html[data-theme="dark"] .tbl td,html[data-theme="dark"] .availability-table th,html[data-theme="dark"] .availability-table td { border-color:var(--border); color:var(--text); }
+    html[data-theme="dark"] #tbl-cal tbody tr:hover { background:#172235; }
+    html[data-theme="dark"] .grade-student-group,html[data-theme="dark"] .modal-close { background:#172235; border-color:#334155; color:#cbd5e1; }
+    html[data-theme="dark"] .availability-callout { background:#1e1b4b; border-color:#3730a3; color:#c7d2fe; }
+    html[data-theme="dark"] .advisor-report-header { background:linear-gradient(115deg,#1e1b4b,#111827 70%); }
+    html[data-theme="dark"] .advisor-report-form #advisor-report-preview { background:#0b1220; }
+    html[data-theme="dark"] .report-grid,#report-moment-details { background:#111827; color:var(--text); }
+    html[data-theme="dark"] .toast { background:#172235; color:var(--text); }
+    html[data-theme="dark"] .student-evaluation-tile,html[data-theme="dark"] .subject-moment-tile { background:#111827; border-color:var(--border); color:var(--text); }
+    html[data-theme="dark"] .subject-report-empty,html[data-theme="dark"] .class-panel-heading h2 { color:var(--text); }
     @media (max-width:760px) {
       .parciales-header { align-items:flex-start; flex-direction:column; padding:18px 16px; }
       .parciales-controls { width:100%; justify-content:stretch; }
@@ -583,6 +666,11 @@
       .grading-actions .btn { flex:1; justify-content:center; }
       .grading-table-footer { align-items:flex-start; flex-direction:column; }
       .grading-page-controls { width:100%; justify-content:space-between; }
+      .appointment-request { grid-template-columns:1fr; }
+      .appointment-request-actions { justify-content:flex-start; }
+      .advisor-report-header { padding:17px 16px; }
+      .advisor-report-form { padding:16px !important; }
+      .advisor-report-form #btn-send-advisor-report { width:100%; }
     }
     @media (max-width:760px) {
       .sidebar { transform:translateX(-100%); width:min(300px,85vw); }
@@ -699,6 +787,18 @@
           <div class="teacher-role" id="teacher-role-side">—</div>
         </div>
       </div>
+      <button class="sidebar-utility" id="theme-toggle" type="button" aria-pressed="false" aria-label="Cambiar tema">
+        <span class="sidebar-utility-icon" id="theme-toggle-icon" aria-hidden="true">🌙</span>
+        <span class="sidebar-utility-label" id="theme-toggle-label">Modo oscuro</span>
+      </button>
+      <button class="sidebar-utility" type="button" data-notification-permission>
+        <span class="sidebar-utility-icon" aria-hidden="true">🔔</span>
+        <span class="sidebar-utility-label">Activar notificaciones</span>
+      </button>
+      <button class="sidebar-utility" type="button" data-pwa-install>
+        <span class="sidebar-utility-icon" aria-hidden="true">📲</span>
+        <span class="sidebar-utility-label">Instalar app</span>
+      </button>
       <button class="btn-logout" id="btn-logout">🚪 Cerrar Sesión</button>
     </div>
   </aside>
@@ -772,6 +872,18 @@
           </div>
         </div>
 
+        <div class="card appointment-request-card">
+          <div class="card-header">
+            <div>
+              <h2>📅 Solicitudes de cita</h2>
+              <p style="margin-top:4px;color:var(--muted);font-size:.77rem;">Confirma las solicitudes para enviar la hora y el motivo al alumno.</p>
+              <small style="display:block;margin-top:4px;color:var(--muted);font-size:.68rem;">Los avisos del sistema requieren permiso y el portal abierto; para notificaciones con la app cerrada se necesita configurar un servicio push adicional.</small>
+            </div>
+            <span class="chip chip-indigo" id="teacher-appointment-count">0 pendientes</span>
+          </div>
+          <div id="teacher-appointment-requests" aria-live="polite" style="padding:0 1rem;">Cargando solicitudes…</div>
+        </div>
+
         <div class="card" style="margin-top:1.2rem;">
           <div class="card-header">
             <h2>🕒 Horarios de atención</h2>
@@ -795,8 +907,14 @@
 
       <!-- ══ PANEL: CLASES ══ -->
       <div class="panel" id="panel-clases">
-        <div class="classes-grid" id="classes-grid">
-          <div class="empty-state"><div class="em-icon">📚</div><p>Cargando clases…</p></div>
+        <div class="card class-panel">
+          <div class="class-panel-heading">
+            <div><h2>Mis materias</h2><p>Alumnos, grupos y acceso a Google Classroom por salón.</p></div>
+            <span class="chip chip-indigo" id="classes-total-chip">Cargando…</span>
+          </div>
+          <div class="classes-grid" id="classes-grid">
+            <div class="empty-state"><div class="em-icon">📚</div><p>Cargando clases…</p></div>
+          </div>
         </div>
       </div>
 
@@ -969,34 +1087,36 @@
       </div>
 
       <div class="panel" id="panel-reporte-cita">
-        <div class="card">
-          <div class="card-header"><h2>✉️ Generar reporte o solicitar cita</h2></div>
-          <form id="advisor-report-form" style="padding:1.4rem;">
-            <div style="display:flex;gap:12px;flex-wrap:wrap;">
-              <div class="fgroup" style="min-width:220px;flex:1;">
+        <div class="card advisor-report-card">
+          <div class="card-header advisor-report-header">
+            <div><h2>✉️ Generar reporte o solicitar cita</h2><p>Prepara el contenido, revisa el destinatario y envía el mensaje al asesor asignado.</p></div>
+          </div>
+          <form id="advisor-report-form" class="advisor-report-form">
+            <div class="advisor-report-fields">
+              <div class="fgroup">
                 <label for="advisor-report-class">Materia</label>
                 <select class="fselect" id="advisor-report-class" required><option value="">— Selecciona materia —</option></select>
               </div>
-              <div class="fgroup" style="min-width:130px;">
+              <div class="fgroup">
                 <label for="advisor-report-group">Grupo</label>
                 <select class="fselect" id="advisor-report-group" required disabled><option value="">— Grupo —</option></select>
               </div>
-              <div class="fgroup" style="min-width:220px;flex:1;">
+              <div class="fgroup">
                 <label for="advisor-report-student">Alumno</label>
                 <select class="fselect" id="advisor-report-student" required disabled><option value="">— Selecciona alumno —</option></select>
               </div>
-              <div class="fgroup" id="advisor-report-partial-wrap" style="min-width:160px;">
+              <div class="fgroup" id="advisor-report-partial-wrap">
                 <label for="advisor-report-partial">Filtrar por parcial (opcional)</label>
                 <select class="fselect" id="advisor-report-partial"><option value="">— Todos los parciales —</option></select>
               </div>
-              <div class="fgroup" style="min-width:180px;">
+              <div class="fgroup">
                 <label for="advisor-report-appointment">¿Solicitar cita?</label>
                 <select class="fselect" id="advisor-report-appointment">
                   <option value="no">No, solo enviar reporte</option>
                   <option value="yes">Sí, solicitar cita</option>
                 </select>
               </div>
-              <div class="fgroup" style="min-width:180px;">
+              <div class="fgroup">
                 <label for="advisor-report-type">Tipo de reporte</label>
                 <select class="fselect" id="advisor-report-type">
                   <option value="general">General (incluye calificaciones)</option>
@@ -1026,8 +1146,20 @@
               <small style="display:block;margin-top:5px;color:var(--muted);">Por privacidad, el asunto usa las iniciales del alumno y su grado/grupo, no su nombre completo.</small>
             </div>
             <div class="fgroup" style="margin-top:12px;">
-              <label for="advisor-report-preview">Vista previa del correo (puedes editar el contenido antes de enviar)</label>
+              <label for="advisor-report-preview">Vista previa del correo</label>
+              <div class="report-editor-controls">
+                <button class="btn btn-gray" id="advisor-report-editor-toggle" type="button">📝 Abrir editor de texto</button>
+                <button class="btn btn-gray" id="advisor-report-editor-reset" type="button">Regenerar vista previa</button>
+                <span id="advisor-report-editor-status" role="status" style="color:var(--muted);font-size:.72rem;">El editor conserva el texto que se enviará.</span>
+              </div>
+              <div id="advisor-report-editor-toolbar" class="report-editor-controls" hidden aria-label="Formato del texto">
+                <button class="report-editor-command" type="button" data-report-command="bold" aria-label="Negrita"><strong>B</strong></button>
+                <button class="report-editor-command" type="button" data-report-command="italic" aria-label="Cursiva"><em>I</em></button>
+                <button class="report-editor-command" type="button" data-report-command="underline" aria-label="Subrayado"><u>U</u></button>
+                <button class="report-editor-command" type="button" data-report-command="insertUnorderedList">• Lista</button>
+              </div>
               <textarea class="finput" id="advisor-report-preview" rows="10"></textarea>
+              <div id="advisor-report-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Editor enriquecido del reporte" hidden></div>
             </div>
             <button type="submit" class="btn btn-primary btn-lg" id="btn-send-advisor-report">Enviar al asesor</button>
           </form>
@@ -1301,6 +1433,34 @@
   </div>
 </div>
 
+<div class="modal-bg" id="modal-classroom">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <div><h3 id="classroom-modal-title">Google Classroom</h3><p id="classroom-modal-group" style="margin-top:4px;color:var(--muted);font-size:.75rem;"></p></div>
+      <button class="modal-close" type="button" aria-label="Cerrar" onclick="closeModal('modal-classroom')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="classroom-config">
+        <p style="color:var(--muted);font-size:.82rem;">Pega el enlace de Google Classroom de este grupo. Se guardará en tu perfil para los siguientes accesos.</p>
+        <label class="fgroup"><span>URL de Google Classroom</span><input class="finput" id="classroom-url-input" type="url" inputmode="url" placeholder="https://classroom.google.com/c/…" autocomplete="url"></label>
+        <p id="classroom-url-error" role="alert" style="color:var(--red);font-size:.75rem;" hidden></p>
+        <button class="btn btn-primary" id="classroom-url-save" type="button">Guardar enlace</button>
+      </div>
+      <div id="classroom-saved-view" hidden>
+        <p id="classroom-frame-placeholder" style="padding:30px;text-align:center;border:1px dashed var(--border);border-radius:11px;color:var(--muted);">Enlace guardado. Pulsa “Abre aquí” para cargar Classroom dentro de la página.</p>
+        <div class="classroom-frame-wrap" id="classroom-frame-wrap" hidden><iframe id="classroom-iframe" title="Google Classroom" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+        <p class="classroom-frame-note">Si Google Classroom no permite mostrarse dentro de esta página, usa “Abrir en una pestaña” para continuar.</p>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gray" id="classroom-edit-link" type="button" hidden>Cambiar enlace</button>
+      <a class="btn btn-gray" id="classroom-open-external" href="https://classroom.google.com/" target="_blank" rel="noopener noreferrer" hidden>Abrir en una pestaña ↗</a>
+      <button class="btn btn-primary" id="classroom-open-here" type="button" hidden>Abre aquí</button>
+      <button class="btn btn-gray" type="button" onclick="closeModal('modal-classroom')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script src="pwa.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -1342,6 +1502,16 @@ let gradeSavePromiseResolve = null;
 let gradeChangeVersion = 0;
 let calLoadedContext = null;
 let calPartialComments = {};
+let teacherProfileLoaded = false;
+let teacherAppointmentUnsubscribe = null;
+let seenAppointmentIds = null;
+let teacherAppointmentRequests = [];
+let classroomCurrentKey = "";
+let classroomCurrentClass = "";
+let classroomCurrentGroup = "";
+let classEnrollmentByGrade = new Map();
+let advisorReportEditorActive = false;
+let advisorReportEditorDirty = false;
 let calPage = 1;
 let calPageSize = 10;
 let activeIndividualReport = null;
@@ -1454,6 +1624,197 @@ async function saveTeacherAvailability() {
     button.textContent = "Guardar horarios";
   }
 }
+
+function listenForAppointmentRequests() {
+  teacherAppointmentUnsubscribe?.();
+  teacherAppointmentUnsubscribe = db.collection("SolicitudesCitas")
+    .where("DocenteId", "==", DOCENTE_ID)
+    .onSnapshot(snapshot => {
+      teacherAppointmentRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => String(b.FechaSolicitud || "").localeCompare(String(a.FechaSolicitud || "")));
+      renderTeacherAppointmentRequests();
+      if (seenAppointmentIds !== null) {
+        snapshot.docChanges().forEach(change => {
+          if (change.type !== "added" || seenAppointmentIds.has(change.doc.id)) return;
+          const appointment = change.doc.data();
+          window.showMaderoNotification?.("Nueva solicitud de cita", {
+            body: `${appointment.AlumnoNombre || "Alumno"} · ${appointment.Clase || "Materia"} · ${appointment.Fecha || ""} ${appointment.Horario || ""}`,
+            data: { url: "./docente-dashboard.html" },
+            tag: `solicitud-cita-${change.doc.id}`
+          }).catch(error => console.error("No se pudo mostrar la notificación de cita:", error));
+        });
+      }
+      seenAppointmentIds = new Set(snapshot.docs.map(doc => doc.id));
+    }, error => {
+      document.getElementById("teacher-appointment-requests").textContent =
+        "No se pudieron cargar las solicitudes: " + error.message;
+      toast("No se pudieron escuchar las solicitudes de cita: " + error.message, "err");
+    });
+}
+
+function renderTeacherAppointmentRequests() {
+  const container = document.getElementById("teacher-appointment-requests");
+  const pendingCount = teacherAppointmentRequests.filter(item => item.Estado === "pendiente").length;
+  document.getElementById("teacher-appointment-count").textContent = `${pendingCount} pendiente(s)`;
+  if (!teacherAppointmentRequests.length) {
+    container.textContent = "Aún no hay solicitudes de cita.";
+    return;
+  }
+  container.innerHTML = teacherAppointmentRequests.slice(0, 20).map(request => {
+    const status = String(request.Estado || "pendiente");
+    const statusLabel = status === "confirmada" ? "Confirmada" : status === "cancelada" ? "No aceptada" : status === "confirmando" ? "Enviando confirmación…" : "Pendiente";
+    const dateLabel = request.Fecha
+      ? new Date(`${request.Fecha}T12:00:00`).toLocaleDateString("es-MX", { dateStyle: "long" })
+      : "Fecha pendiente";
+    const canRespond = status === "pendiente";
+    return `<article class="appointment-request">
+      <div>
+        <strong>${h(request.AlumnoNombre || "Alumno")} · ${h(request.Clase || "Materia")}</strong>
+        <small style="display:block;margin-top:3px;color:var(--muted);font-size:.72rem;">${h(request.Grado || "")}° ${h(request.Grupo || "")} · ${h(request.AlumnoMatricula || "")}</small>
+        <p>${h(dateLabel)} · ${h(request.Dia || "")} · ${h(request.Horario || "")}<br>Motivo: ${h(request.Motivo || "—")}</p>
+        <span class="appointment-status ${status}">${statusLabel}</span>
+      </div>
+      <div class="appointment-request-actions">
+        ${canRespond ? `<button class="btn btn-primary" type="button" data-appointment-confirm="${h(request.id)}">Confirmar y enviar correo</button><button class="btn btn-gray" type="button" data-appointment-decline="${h(request.id)}">No aceptar</button>` : ""}
+      </div>
+    </article>`;
+  }).join("");
+}
+
+function requestGmailSendToken() {
+  return new Promise((resolve, reject) => {
+    if (!window.google?.accounts?.oauth2) {
+      reject(new Error("No se pudo cargar la autorización de Google."));
+      return;
+    }
+    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_OAUTH_CLIENT_ID,
+      scope: "https://www.googleapis.com/auth/gmail.send",
+      callback: response => {
+        if (response.error || !response.access_token) {
+          reject(new Error(response.error_description || "Google no autorizó el envío."));
+          return;
+        }
+        resolve(response.access_token);
+      },
+      error_callback: error => reject(new Error(error.message || "Google rechazó la autorización."))
+    });
+    tokenClient.requestAccessToken({ prompt: "select_account" });
+  });
+}
+
+async function confirmAppointment(id) {
+  const request = teacherAppointmentRequests.find(item => item.id === id);
+  if (!request || request.Estado !== "pendiente") return;
+  if (window.location.protocol === "file:") {
+    toast("Para confirmar y enviar correos, abre MaderoChecker mediante HTTPS o localhost.", "warn");
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(request.AlumnoCorreo || "").trim())
+      || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(docenteData.Correo || "").trim())) {
+    toast("La solicitud necesita correos válidos del alumno y del docente para enviar la confirmación.", "err");
+    return;
+  }
+  const date = new Date(`${request.Fecha}T12:00:00`);
+  const requestDay = ATTENTION_DAYS[date.getDay() - 1];
+  const slotIndex = Number(request.SlotIndex);
+  if (!requestDay || requestDay !== request.Dia || !(teacherAvailability[requestDay] || []).includes(slotIndex)) {
+    toast("Ese horario ya no está disponible en tu calendario. Actualiza la solicitud antes de confirmarla.", "warn");
+    return;
+  }
+  const today = new Date();
+  const todayString = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  if (request.Fecha < todayString) {
+    toast("No se puede confirmar una cita cuya fecha ya pasó.", "warn");
+    return;
+  }
+  const startTime = ATTENTION_SLOTS[slotIndex]?.start || "";
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  if (request.Fecha === todayString && today.getHours() * 60 + today.getMinutes() >= startHour * 60 + startMinute) {
+    toast("Ese horario ya comenzó; solicita una nueva fecha para la cita.", "warn");
+    return;
+  }
+  const conflict = teacherAppointmentRequests.find(item =>
+    item.id !== id && item.Estado === "confirmada" && item.Fecha === request.Fecha && Number(item.SlotIndex) === slotIndex
+  );
+  if (conflict) {
+    toast("Ya hay una cita confirmada para ese horario.", "warn");
+    return;
+  }
+  if (!GOOGLE_OAUTH_CLIENT_ID) {
+    gmailActionAfterSetup = () => confirmAppointment(id);
+    openGoogleOAuthSetup();
+    return;
+  }
+  const reference = db.collection("SolicitudesCitas").doc(id);
+  let latestRequest;
+  try {
+    latestRequest = await db.runTransaction(async transaction => {
+      const snapshot = await transaction.get(reference);
+      if (!snapshot.exists || snapshot.data().Estado !== "pendiente") {
+        throw new Error("La solicitud ya fue atendida o dejó de estar disponible.");
+      }
+      transaction.update(reference, { Estado: "confirmando", FechaRespuesta: new Date().toISOString() });
+      return snapshot.data();
+    });
+  } catch (error) {
+    toast("No se pudo reservar la solicitud para confirmarla: " + error.message, "err");
+    return;
+  }
+  try {
+    const dateLabel = new Date(`${latestRequest.Fecha}T12:00:00`).toLocaleDateString("es-MX", { dateStyle: "long" });
+    const subject = `Cita confirmada · ${latestRequest.Clase} · ${dateLabel}`;
+    const details = `<p>La cita solicitada ha sido confirmada.</p>
+      <p><strong>Alumno:</strong> ${h(latestRequest.AlumnoNombre)} (${h(latestRequest.Grado)}° ${h(latestRequest.Grupo)})</p>
+      <p><strong>Materia:</strong> ${h(latestRequest.Clase)}</p>
+      <p><strong>Fecha:</strong> ${h(dateLabel)} (${h(latestRequest.Dia)})</p>
+      <p><strong>Horario:</strong> ${h(latestRequest.Horario)}</p>
+      <p><strong>Motivo:</strong><br>${h(latestRequest.Motivo).replace(/\r?\n/g, "<br>")}</p>
+      <p><strong>Docente:</strong> ${h(docenteData.Nombre || "Docente")}</p>`;
+    const token = await requestGmailSendToken();
+    await sendGmailMessage(token, buildHtmlEmailMessage(
+      [String(latestRequest.AlumnoCorreo).trim()], subject, `<div style="font-family:Arial,sans-serif;color:#17202a;max-width:680px;margin:auto;">${details}</div>`
+    ));
+    await sendGmailMessage(token, buildHtmlEmailMessage(
+      [String(docenteData.Correo).trim()], subject, `<div style="font-family:Arial,sans-serif;color:#17202a;max-width:680px;margin:auto;">${details}</div>`
+    ));
+  } catch (error) {
+    try {
+      await reference.update({ Estado: "pendiente", ErrorConfirmacion: error.message });
+    } catch (updateError) {
+      console.error("No se pudo restaurar el estado pendiente de la cita:", updateError);
+    }
+    toast("No se pudieron enviar ambos correos; la solicitud volvió a quedar pendiente. " + error.message, "err");
+    return;
+  }
+  try {
+    await reference.update({ Estado: "confirmada", FechaConfirmacion: new Date().toISOString(), ErrorConfirmacion: "" });
+    toast("Cita confirmada; se enviaron correos al alumno y al docente.", "ok");
+  } catch (error) {
+    toast("Los correos se enviaron, pero no se pudo actualizar el estado de la cita: " + error.message, "err");
+  }
+}
+
+async function declineAppointment(id) {
+  const request = teacherAppointmentRequests.find(item => item.id === id);
+  if (!request || request.Estado !== "pendiente") return;
+  try {
+    await db.collection("SolicitudesCitas").doc(id).update({
+      Estado: "cancelada",
+      FechaRespuesta: new Date().toISOString()
+    });
+    toast("La solicitud se marcó como no aceptada.", "ok");
+  } catch (error) {
+    toast("No se pudo actualizar la solicitud: " + error.message, "err");
+  }
+}
+
+document.getElementById("teacher-appointment-requests").addEventListener("click", event => {
+  const confirmButton = event.target.closest("[data-appointment-confirm]");
+  const declineButton = event.target.closest("[data-appointment-decline]");
+  if (confirmButton) confirmAppointment(confirmButton.dataset.appointmentConfirm);
+  if (declineButton) declineAppointment(declineButton.dataset.appointmentDecline);
+});
 
 function getClaseConfig(clase) {
   return docenteData.ClasesConfig?.[clase] || null;
@@ -1634,6 +1995,31 @@ function setSidebarCollapsed(collapsed, persist = true) {
   if (persist) localStorage.setItem("maderoTeacherSidebarCollapsed", collapsed ? "true" : "false");
 }
 
+function applyTeacherTheme(theme) {
+  const dark = theme === "dark";
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  localStorage.setItem(`madero-theme-${DOCENTE_ID || "guest"}`, dark ? "dark" : "light");
+  const button = document.getElementById("theme-toggle");
+  button.setAttribute("aria-pressed", String(dark));
+  button.setAttribute("aria-label", dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro");
+  document.getElementById("theme-toggle-icon").textContent = dark ? "☀️" : "🌙";
+  document.getElementById("theme-toggle-label").textContent = dark ? "Modo claro" : "Modo oscuro";
+}
+
+applyTeacherTheme(document.documentElement.dataset.theme);
+
+document.getElementById("theme-toggle").addEventListener("click", async () => {
+  const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  applyTeacherTheme(theme);
+  docenteData.TemaOscuro = theme === "dark";
+  if (!teacherProfileLoaded) return;
+  try {
+    await db.collection("Usuarios").doc(DOCENTE_ID).update({ TemaOscuro: theme === "dark" });
+  } catch (error) {
+    toast("El tema quedó guardado en este dispositivo, pero no se sincronizó con tu perfil: " + error.message, "err");
+  }
+});
+
 const savedSidebarState = localStorage.getItem("maderoTeacherSidebarCollapsed");
 setSidebarCollapsed(window.innerWidth <= 760 || savedSidebarState === "true", false);
 document.getElementById("sidebar-reopen").addEventListener("click", () => {
@@ -1711,8 +2097,15 @@ async function loadDocente() {
 
     populateClassSelects(clases);
     updateAdvisorReportTypeUI();
-    renderClassCards(clases);
+    const savedTheme = typeof docenteData.TemaOscuro === "boolean"
+      ? docenteData.TemaOscuro ? "dark" : "light"
+      : localStorage.getItem(`madero-theme-${DOCENTE_ID}`) || "light";
+    applyTeacherTheme(savedTheme);
+    teacherProfileLoaded = true;
+    await renderClassCards(clases);
+    listenForAppointmentRequests();
     await loadParciales();
+    await renderClassCards(clases);
   } catch(e) {
     toast("Error cargando perfil: " + e.message, "err");
     console.error(e);
@@ -2124,26 +2517,174 @@ document.getElementById("momentos-config").addEventListener("change", event => {
 // ════════════════════════════════════════
 // RENDER CLASS CARDS
 // ════════════════════════════════════════
-function renderClassCards(clases) {
+async function renderClassCards(clases) {
   const grid = document.getElementById("classes-grid");
   if (!clases.length) {
     grid.innerHTML = `<div class="empty-state"><div class="em-icon">📚</div><p>Sin clases asignadas</p><small>El administrador debe asignarte clases</small></div>`;
+    document.getElementById("classes-total-chip").textContent = "0 materias";
     return;
   }
-  grid.innerHTML = clases.map((c, i) => `
-    <div class="class-card ${COLORS[i % COLORS.length]}">
-      <div class="class-name">${h(c)}</div>
-      <div class="class-grade">${getParcialCountForClass(c)} parcial(es) configurado(s)</div>
-      <div class="class-actions">
-        <button class="class-btn" onclick="goPanel('parciales'); setTimeout(()=>{ document.getElementById('parcial-clase-filter').value='${c}'; renderParciales(); },100)">📋 Parciales</button>
-        <button class="class-btn" onclick="goPanel('calificaciones'); setTimeout(()=>{ document.getElementById('cal-clase').value='${c}'; onClaseCalChange(); },100)">✏️ Calificar</button>
+  const studentsByGrade = new Map();
+  try {
+    const grades = [...new Set(clases.map(clase => String(clase).match(/\((\d)°\)/)?.[1]).filter(Boolean))];
+    await Promise.all(grades.filter(grade => !classEnrollmentByGrade.has(grade)).map(async grade => {
+      const snapshot = await db.collection("Usuarios").where("Rol", "==", "Alumno").where("Grado", "==", grade).get();
+      classEnrollmentByGrade.set(grade, snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }));
+    grades.forEach(grade => studentsByGrade.set(grade, classEnrollmentByGrade.get(grade) || []));
+  } catch (error) {
+    document.getElementById("classes-total-chip").textContent = `${clases.length} materias`;
+    grid.innerHTML = `<div class="empty-state"><div class="em-icon">⚠️</div><p>No se pudo cargar el conteo de alumnos.</p><small>${h(error.message)}</small></div>`;
+    toast("No se pudieron cargar los grupos y alumnos de tus materias: " + error.message, "err");
+    return;
+  }
+  const enrolledStudents = new Set();
+  const cards = clases.map((clase, index) => {
+    const grade = String(clase).match(/\((\d)°\)/)?.[1] || "";
+    const students = studentsByGrade.get(grade) || [];
+    const configuredGroups = (getClaseConfig(clase)?.Grupos || []).map(group => String(group).trim()).filter(Boolean);
+    const groups = configuredGroups.length
+      ? configuredGroups
+      : [...new Set(students.map(student => String(student.Grupo || "")).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+    const groupRows = groups.map(group => {
+      const members = students.filter(student => String(student.Grupo || "").toUpperCase() === group.toUpperCase());
+      members.forEach(student => enrolledStudents.add(student.id));
+      const key = classroomStorageKey(clase, group);
+      const hasClassroom = Boolean(docenteData.ClassroomUrls?.[key]);
+      return `<div class="class-group-row">
+        <div class="class-group-info"><strong>Salón ${h(grade)}° ${h(group)}</strong><small>${members.length} alumno(s)</small></div>
+        <button class="class-btn" type="button" data-classroom-class="${h(clase)}" data-classroom-group="${h(group)}">${hasClassroom ? "↗ Ir a Classroom" : "+ Añadir Classroom"}</button>
+      </div>`;
+    }).join("");
+    return `<article class="class-card ${COLORS[index % COLORS.length]}">
+      <div class="class-card-heading">
+        <div><div class="class-name">${h(clase)}</div><div class="class-grade">${getParcialCountForClass(clase)} parcial(es) configurado(s)</div></div>
+        <span class="class-card-total">${groups.length} grupo(s)<br>${students.filter(student => !configuredGroups.length || configuredGroups.some(group => group.toUpperCase() === String(student.Grupo || "").toUpperCase())).length} alumno(s)</span>
       </div>
-    </div>`).join("");
+      <div class="class-groups">${groupRows || `<p style="font-size:.75rem;opacity:.8;">No hay grupos asignados.</p>`}</div>
+      <div class="class-card-links">
+        <button class="class-btn" type="button" data-class-action="partials" data-class="${h(clase)}">📋 Parciales</button>
+        <button class="class-btn" type="button" data-class-action="grades" data-class="${h(clase)}">✏️ Calificar</button>
+      </div>
+    </article>`;
+  });
+  document.getElementById("classes-total-chip").textContent =
+    `${clases.length} materias · ${enrolledStudents.size} alumno(s)`;
+  grid.innerHTML = cards.join("");
+}
+
+function classroomStorageKey(clase, grupo) {
+  return `${clase}::${grupo}`;
+}
+
+function openClassroomSetup(clase, grupo) {
+  classroomCurrentClass = clase;
+  classroomCurrentGroup = grupo;
+  classroomCurrentKey = classroomStorageKey(clase, grupo);
+  const savedUrl = String(docenteData.ClassroomUrls?.[classroomCurrentKey] || "");
+  document.getElementById("classroom-modal-title").textContent = "Google Classroom";
+  document.getElementById("classroom-modal-group").textContent = `${clase} · Salón ${grupo}`;
+  document.getElementById("classroom-url-input").value = savedUrl;
+  document.getElementById("classroom-url-error").hidden = true;
+  document.getElementById("classroom-config").hidden = Boolean(savedUrl);
+  document.getElementById("classroom-saved-view").hidden = !savedUrl;
+  document.getElementById("classroom-frame-placeholder").hidden = false;
+  document.getElementById("classroom-frame-wrap").hidden = true;
+  document.getElementById("classroom-open-external").hidden = !savedUrl;
+  document.getElementById("classroom-open-external").href = savedUrl || "https://classroom.google.com/";
+  document.getElementById("classroom-open-here").hidden = !savedUrl;
+  document.getElementById("classroom-edit-link").hidden = !savedUrl;
+  document.getElementById("classroom-iframe").src = "about:blank";
+  openModal("modal-classroom");
+}
+
+async function saveClassroomUrl() {
+  const input = document.getElementById("classroom-url-input");
+  const errorLabel = document.getElementById("classroom-url-error");
+  let url;
+  try {
+    url = new URL(input.value.trim());
+  } catch (error) {
+    errorLabel.textContent = "Escribe un enlace válido de Google Classroom.";
+    errorLabel.hidden = false;
+    return;
+  }
+  if (url.protocol !== "https:" || url.hostname !== "classroom.google.com") {
+    errorLabel.textContent = "El enlace debe comenzar con https://classroom.google.com/.";
+    errorLabel.hidden = false;
+    return;
+  }
+  const button = document.getElementById("classroom-url-save");
+  button.disabled = true;
+  try {
+    const updatedUrls = { ...(docenteData.ClassroomUrls || {}), [classroomCurrentKey]: url.href };
+    await db.collection("Usuarios").doc(DOCENTE_ID).update({ ClassroomUrls: updatedUrls });
+    docenteData.ClassroomUrls = updatedUrls;
+    await renderClassCards(docenteData.Clases || []);
+    openClassroomSetup(classroomCurrentClass, classroomCurrentGroup);
+    toast("Se guardó el enlace de Classroom.", "ok");
+  } catch (error) {
+    errorLabel.textContent = "No se pudo guardar el enlace: " + error.message;
+    errorLabel.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function openClassroomHere() {
+  const url = docenteData.ClassroomUrls?.[classroomCurrentKey];
+  if (!url) {
+    toast("Configura primero el enlace de este salón.", "warn");
+    return;
+  }
+  document.getElementById("classroom-iframe").src = url;
+  document.getElementById("classroom-config").hidden = true;
+  document.getElementById("classroom-saved-view").hidden = false;
+  document.getElementById("classroom-frame-placeholder").hidden = true;
+  document.getElementById("classroom-frame-wrap").hidden = false;
+}
+
+function closeClassroomModal() {
+  document.getElementById("classroom-iframe").src = "about:blank";
+  document.getElementById("classroom-frame-placeholder").hidden = false;
+  document.getElementById("classroom-frame-wrap").hidden = true;
+  closeModal("modal-classroom");
 }
 
 function getParcialCountForClass(clase) {
   return cacheParciales.filter(p => p.Clase === clase).length;
 }
+
+document.getElementById("classes-grid").addEventListener("click", event => {
+  const classroomButton = event.target.closest("[data-classroom-class]");
+  if (classroomButton) {
+    openClassroomSetup(classroomButton.dataset.classroomClass, classroomButton.dataset.classroomGroup);
+    return;
+  }
+  const actionButton = event.target.closest("[data-class-action]");
+  if (!actionButton) return;
+  const clase = actionButton.dataset.class;
+  if (actionButton.dataset.classAction === "partials") {
+    goPanel("parciales");
+    document.getElementById("parcial-clase-filter").value = clase;
+    renderParciales();
+  } else {
+    goPanel("calificaciones");
+    document.getElementById("cal-clase").value = clase;
+    onClaseCalChange();
+  }
+});
+
+document.getElementById("classroom-url-save").addEventListener("click", saveClassroomUrl);
+document.getElementById("classroom-open-here").addEventListener("click", openClassroomHere);
+document.getElementById("classroom-edit-link").addEventListener("click", () => {
+  document.getElementById("classroom-config").hidden = false;
+  document.getElementById("classroom-saved-view").hidden = true;
+  document.getElementById("classroom-open-external").hidden = true;
+  document.getElementById("classroom-open-here").hidden = true;
+});
+document.querySelectorAll("#modal-classroom .modal-close, #modal-classroom .modal-foot > .btn-gray:last-child")
+  .forEach(button => button.addEventListener("click", closeClassroomModal));
 
 // ════════════════════════════════════════
 // LOAD PARCIALES
@@ -2390,7 +2931,7 @@ async function copyParcialCriteria() {
     closeModal("modal-copiar-parcial");
     toast(`Rubros copiados al Parcial ${targetNumber}; no se copiaron calificaciones ni otros datos.`, "ok");
     await loadParciales();
-    renderClassCards(docenteData.Clases || []);
+    await renderClassCards(docenteData.Clases || []);
     if (document.getElementById("cal-clase").value === source.Clase) onClaseCalChange();
   } catch (error) {
     toast("No se pudieron copiar los rubros: " + error.message, "err");
@@ -2480,7 +3021,7 @@ async function saveParcial() {
     toast("Parcial guardado correctamente", "ok");
     closeModal("modal-parcial");
     await loadParciales();
-    renderClassCards(docenteData.Clases || []);
+    await renderClassCards(docenteData.Clases || []);
     // refresh cal parcial selector if same class
     if (document.getElementById("cal-clase").value === clase) onClaseCalChange();
   } catch(e) { toast("Error: " + e.message, "err"); }
@@ -4707,6 +5248,7 @@ document.getElementById("advisor-report-all-classes").addEventListener("click", 
 });
 
 function updateAdvisorReportPreview() {
+  if (advisorReportEditorDirty) return;
   const studentId = document.getElementById("advisor-report-student").value;
   const student = advisorReportStudents.find(item => item.id === studentId);
   const className = document.getElementById("advisor-report-class").value;
@@ -4737,8 +5279,90 @@ function updateAdvisorReportPreview() {
   }
   if (reportType === "general") lines.push("", "Resumen de calificaciones:", advisorReportGradeSummary);
   lines.push("", "Motivo y detalles:", reason || "Escribe el motivo detallado del reporte.");
-  document.getElementById("advisor-report-preview").value = lines.join("\n");
+  const preview = document.getElementById("advisor-report-preview");
+  preview.value = lines.join("\n");
+  if (advisorReportEditorActive) {
+    document.getElementById("advisor-report-editor").innerHTML =
+      h(preview.value).replace(/\r?\n/g, "<br>");
+  }
 }
+
+function sanitizeAdvisorReportEditor() {
+  const editor = document.getElementById("advisor-report-editor");
+  const parser = new DOMParser();
+  const parsed = parser.parseFromString(`<body>${editor.innerHTML}</body>`, "text/html");
+  const allowed = new Set(["B", "STRONG", "I", "EM", "U", "UL", "OL", "LI", "BR", "P", "DIV"]);
+  const forbidden = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "SVG", "MATH"]);
+  const cleanNode = node => {
+    if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.textContent || "");
+    if (node.nodeType !== Node.ELEMENT_NODE) return document.createDocumentFragment();
+    if (forbidden.has(node.tagName)) return document.createDocumentFragment();
+    const fragment = document.createDocumentFragment();
+    const target = allowed.has(node.tagName) ? document.createElement(node.tagName.toLowerCase()) : fragment;
+    [...node.childNodes].forEach(child => target.appendChild(cleanNode(child)));
+    if (target !== fragment) fragment.appendChild(target);
+    return fragment;
+  };
+  const cleanBody = document.createElement("div");
+  [...parsed.body.childNodes].forEach(child => cleanBody.appendChild(cleanNode(child)));
+  return cleanBody.innerHTML;
+}
+
+document.getElementById("advisor-report-editor-toggle").addEventListener("click", event => {
+  const textArea = document.getElementById("advisor-report-preview");
+  const editor = document.getElementById("advisor-report-editor");
+  const toolbar = document.getElementById("advisor-report-editor-toolbar");
+  advisorReportEditorActive = !advisorReportEditorActive;
+  if (advisorReportEditorActive) {
+    if (!advisorReportEditorDirty) editor.innerHTML = h(textArea.value).replace(/\r?\n/g, "<br>");
+    textArea.hidden = true;
+    editor.hidden = false;
+    toolbar.hidden = false;
+    event.currentTarget.textContent = "↩ Vista previa de texto";
+    document.getElementById("advisor-report-editor-status").textContent = "Formato visual activado; el envío incluirá el formato permitido.";
+    editor.focus();
+  } else {
+    textArea.value = editor.innerText;
+    textArea.hidden = false;
+    editor.hidden = true;
+    toolbar.hidden = true;
+    event.currentTarget.textContent = "📝 Abrir editor de texto";
+    document.getElementById("advisor-report-editor-status").textContent = "El editor conserva el texto que se enviará.";
+  }
+});
+
+document.getElementById("advisor-report-editor").addEventListener("input", event => {
+  advisorReportEditorDirty = true;
+  document.getElementById("advisor-report-preview").value = event.currentTarget.innerText;
+});
+document.getElementById("advisor-report-editor").addEventListener("paste", event => {
+  event.preventDefault();
+  const plainText = event.clipboardData?.getData("text/plain") || "";
+  document.execCommand("insertText", false, plainText);
+});
+document.getElementById("advisor-report-editor").addEventListener("drop", event => event.preventDefault());
+document.getElementById("advisor-report-preview").addEventListener("input", event => {
+  if (!advisorReportEditorDirty) return;
+  advisorReportEditorDirty = false;
+  document.getElementById("advisor-report-editor").innerHTML =
+    h(event.currentTarget.value).replace(/\r?\n/g, "<br>");
+});
+
+document.getElementById("advisor-report-editor-toolbar").addEventListener("mousedown", event => {
+  if (event.target.closest("[data-report-command]")) event.preventDefault();
+});
+document.getElementById("advisor-report-editor-toolbar").addEventListener("click", event => {
+  const button = event.target.closest("[data-report-command]");
+  if (!button) return;
+  document.execCommand(button.dataset.reportCommand, false);
+  document.getElementById("advisor-report-editor").focus();
+});
+
+document.getElementById("advisor-report-editor-reset").addEventListener("click", () => {
+  advisorReportEditorDirty = false;
+  updateAdvisorReportPreview();
+  document.getElementById("advisor-report-editor-status").textContent = "Se regeneró el contenido automático del reporte.";
+});
 
 async function loadAdvisorReportGradeSummary() {
   const studentId = document.getElementById("advisor-report-student").value;
@@ -4849,7 +5473,8 @@ document.getElementById("advisor-report-form").addEventListener("submit", async 
   const button = document.getElementById("btn-send-advisor-report");
   button.disabled = true;
   button.textContent = "Autorizando…";
-  const html = `<div style="font-family:Arial,sans-serif;color:#17202a;max-width:720px;margin:auto;white-space:pre-wrap;">${h(preview)}</div>`;
+  const reportBody = advisorReportEditorDirty ? sanitizeAdvisorReportEditor() : h(preview);
+  const html = `<div style="font-family:Arial,sans-serif;color:#17202a;max-width:720px;margin:auto;white-space:pre-wrap;">${reportBody}</div>`;
   const cc = getTeacherCopy([assignment.Correo]);
   const message = buildHtmlEmailMessage([assignment.Correo], subject, html, cc);
   const tokenClient = window.google.accounts.oauth2.initTokenClient({
