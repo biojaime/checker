@@ -1,6 +1,6 @@
 # Planeador IMM · versión HTML estática
 
-Esta carpeta contiene una versión web sin Streamlit ni servidor de aplicación. La página de entrada es `Planner.html` (no `index.html`). Puedes publicarla con la estructura original (`WEBVERSION/`, `assets/` y `vendor/`) o subir los archivos a la raíz de la rama de GitHub Pages. La página detecta el caso aplanado y busca imágenes y bibliotecas junto a `Planner.html`.
+Esta carpeta contiene una versión web sin Streamlit ni servidor de aplicación. La página de entrada es `Planner.html` (no `index.html`). Para publicarla, sube **toda la carpeta `WEBVERSION`** a tu hosting y conserva `Planner.html`, `app.js`, `styles.css`, `pda-data.js`, `brand-assets.js`, `assets/` y `vendor/`.
 
 Abre `Planner.html` directamente o intégralo en tu sitio con un `iframe` que apunte a esa página. Para separar el espacio local de cada docente, agrega una clave en la URL, por ejemplo `Planner.html?user=docente-01`.
 
@@ -17,6 +17,7 @@ El botón **Planeador** del portal docente abre esta página con `user`, `nombre
 - Adjuntar, quitar y previsualizar rúbricas PNG/JPG.
 - Autoguardado local por clave de sesión, importar y exportar JSON.
 - El portal MaderoChecker incluye la configuración de tres momentos; asigna parciales a cada momento, calcula el promedio redondeado según un umbral de 0.5 o 0.6 y conserva las calificaciones reprobatorias por debajo de 6.
+- El portal permite numerar los parciales con cualquier entero positivo, copiarlos a cualquier número y generar boletas por parcial, por momento individual o por promedio de los tres momentos.
 - Generar el prompt IA original, incluida la instrucción bilingüe.
 - Descargas PDF y Word editables, con los logotipos institucionales incluidos.
 - El PDF conserva el formato carta horizontal, márgenes de ½ pulgada y la marca de agua de página completa correspondiente al campo formativo, igual que la salida de Streamlit.
@@ -29,4 +30,4 @@ Los generadores PDF y Word están incluidos en `vendor/`; las exportaciones no d
 
 Para usar IndexedDB y descargas con normalidad, publícala bajo HTTPS o ábrela desde un servidor local, no como archivo `file://`. El importador acepta JSON del planeador Streamlit. Las rutas de imágenes antiguas que solo existían en el servidor original se conservan como referencia, pero deben volver a adjuntarse; las imágenes subidas en esta versión viajan dentro del respaldo JSON.
 
-Para publicar desde una rama llamada `WEBVERSION` cuyo contenido está en la raíz, configura **Settings → Pages → Deploy from a branch → WEBVERSION → /(root)**. La URL resultante termina en `/Planner.html`, no en `/WEBVERSION/Planner.html`; el botón del portal adapta el enlace para GitHub Pages. Conserva juntos `Planner.html`, `app.js`, `styles.css`, `pda-data.js`, `brand-assets.js`, `planner.ico`, los archivos de imagen, `docx.umd.js` y `html2pdf.bundle.min.js`. Si Pages aún responde 404, verifica la rama/carpeta fuente y espera a que termine el despliegue.
+Si GitHub Pages responde 404 para `/WEBVERSION/Planner.html`, comprueba que la carpeta `WEBVERSION` (con esa capitalización) y sus archivos estén incluidos en la rama y en la carpeta fuente configurada para Pages. GitHub Pages distingue mayúsculas y minúsculas en las rutas.

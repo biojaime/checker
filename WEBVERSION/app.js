@@ -982,11 +982,7 @@
   function getAppResourceUrl(path) {
     const appScript = [...document.scripts].find((item) => /(?:^|\/)app\.js(?:\?|$)/.test(item.src));
     if (!appScript) throw new Error("No se pudo localizar app.js para resolver los recursos locales.");
-    const appDirectory = new URL(".", appScript.src);
-    const resourcePath = location.pathname.toLowerCase().includes("/webversion/")
-      ? path
-      : path.split("/").pop();
-    return new URL(resourcePath, appDirectory).href;
+    return new URL(path, new URL(".", appScript.src)).href;
   }
 
   function printHtml(data) {
@@ -1058,7 +1054,7 @@
         script.onload = () => typeof window.html2pdf === "function"
           ? resolve()
           : reject(new Error("El archivo local html2pdf.bundle.min.js cargó, pero no expone el generador PDF."));
-        script.onerror = () => reject(new Error("No se pudo cargar html2pdf.bundle.min.js; publica el archivo junto a app.js."));
+        script.onerror = () => reject(new Error("No se pudo cargar vendor/html2pdf.bundle.min.js; publica la carpeta WEBVERSION completa."));
         document.head.append(script);
       });
     }
@@ -1292,16 +1288,16 @@
     if (!docxLibraryPromise) {
       docxLibraryPromise = new Promise((resolve, reject) => {
         const script = document.createElement("script");
-        try {
-          script.src = getAppResourceUrl("vendor/docx.umd.js");
-        } catch (error) {
-          reject(error);
+        const appScript = [...document.scripts].find((item) => /(?:^|\/)app\.js(?:\?|$)/.test(item.src));
+        if (!appScript) {
+          reject(new Error("No se pudo localizar app.js para cargar el generador Word local."));
           return;
         }
+        script.src = new URL("vendor/docx.umd.js", appScript.src).href;
         script.onload = () => window.docx?.Document && window.docx?.Packer
           ? resolve()
           : reject(new Error("El archivo local docx.umd.js cargó, pero no expone el generador DOCX."));
-        script.onerror = () => reject(new Error("No se pudo cargar docx.umd.js; publica el archivo junto a app.js."));
+        script.onerror = () => reject(new Error("No se pudo cargar vendor/docx.umd.js; publica la carpeta WEBVERSION completa."));
         document.head.append(script);
       });
     }

@@ -5,12 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1326">
   <title>Planeador Docente IMM</title>
-  <link rel="icon" href="planner.ico">
-  <script>if (location.pathname.toLowerCase().includes("/webversion/")) document.querySelector('link[rel="icon"]').href = "assets/planner.ico";</script>
+  <link rel="icon" href="assets/planner.ico">
   <link rel="stylesheet" href="styles.css?v=3">
   <script defer src="brand-assets.js?v=1"></script>
   <script defer src="pda-data.js?v=3"></script>
-  <script defer src="app.js?v=12"></script>
+  <script defer src="app.js?v=11"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -19,6 +18,7 @@
         <span class="brand-mark">M</span>
         <span><strong>IMM Planeaciones</strong><small>Sistema Bilingüe · SEP</small></span>
       </a>
+      <a class="button button-muted full-width" href="../docente-dashboard.html">← Regresar al inicio</a>
 
       <section class="side-card session-card">
         <div class="session-heading"><label for="userId">Docente / Sesión</label><span class="session-live"><i></i> Activa</span></div>
@@ -53,8 +53,10 @@
         <p>Genera y copia el contexto de tu planeación para usarlo en tu IA favorita.</p>
         <button class="button button-success full-width" type="button" data-generate-prompt>✨ Generar Prompt IA</button>
         <div class="assistant-links">
-          <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer"><img src="gemini.png" onerror="this.onerror=null;this.src='assets/gemini.png'" alt=""> Abrir Gemini ↗</a>
-          <a href="https://www.deepseek.com/" target="_blank" rel="noopener noreferrer"><img src="deepseek.png" onerror="this.onerror=null;this.src='assets/deepseek.png'" alt=""> Abrir DeepSeek ↗</a>
+          <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer"><img src="assets/gemini.png" alt=""> Abrir Gemini ↗</a>
+          <a href="https://www.deepseek.com/" target="_blank" rel="noopener noreferrer"><img src="assets/deepseek.png" alt=""> Abrir DeepSeek ↗</a>
+          <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer"><img src="assets/CLAUDE.webp" alt=""> Abrir Claude ↗</a>
+          <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer"><img src="assets/chatgpt.png" alt=""> Abrir ChatGPT ↗</a>
         </div>
       </section>
       <p class="sidebar-footnote">Los datos se guardan en este navegador. Exporta el JSON para respaldarlos o moverlos a otro dispositivo.</p>
@@ -63,13 +65,13 @@
     <main class="workspace">
       <header class="hero">
         <div class="institution-row">
-          <img src="logo-imm.png" onerror="this.onerror=null;this.src='assets/logo-imm.png'" alt="Instituto Mexicano Madero" class="institution-logo imm-logo">
+          <img src="assets/logo-imm.png" alt="Instituto Mexicano Madero" class="institution-logo imm-logo">
           <div class="institution-copy">
             <p>Sistema bilingüe fundado en 1874</p>
             <strong>Instituto Mexicano Madero</strong>
           </div>
           <div class="sep-copy"><span>SECRETARÍA DE EDUCACIÓN PÚBLICA</span><strong>Dirección de Educación Secundaria</strong></div>
-          <img src="logo-sep.png" onerror="this.onerror=null;this.src='assets/logo-sep.png'" alt="Secretaría de Educación Pública" class="institution-logo sep-logo">
+          <img src="assets/logo-sep.png" alt="Secretaría de Educación Pública" class="institution-logo sep-logo">
         </div>
         <div class="hero-title">
           <span class="eyebrow"><i></i> NUEVA ESCUELA MEXICANA · FORMATO DOCENTE</span>
@@ -216,7 +218,7 @@
             <div class="panel-heading"><span class="panel-icon green">IA</span><div><h3>Prompt para IA</h3><p>Usa el contexto curricular para crear una propuesta en tu asistente favorito.</p></div></div>
             <div class="button-row prompt-actions"><button class="button button-primary" type="button" data-generate-prompt>✨ Generar Prompt IA</button><button id="copyPromptButton" class="button button-muted" type="button" disabled>Copiar prompt</button></div>
             <textarea id="promptOutput" class="prompt-output" rows="12" readonly placeholder="El prompt generado aparecerá aquí."></textarea>
-            <div class="assistant-links"><a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer"><img src="gemini.png" onerror="this.onerror=null;this.src='assets/gemini.png'" alt=""> Abrir Gemini ↗</a><a href="https://www.deepseek.com/" target="_blank" rel="noopener noreferrer"><img src="deepseek.png" onerror="this.onerror=null;this.src='assets/deepseek.png'" alt=""> Abrir DeepSeek ↗</a></div>
+            <div class="assistant-links"><a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer"><img src="assets/gemini.png" alt=""> Abrir Gemini ↗</a><a href="https://www.deepseek.com/" target="_blank" rel="noopener noreferrer"><img src="assets/deepseek.png" alt=""> Abrir DeepSeek ↗</a><a href="https://claude.ai/" target="_blank" rel="noopener noreferrer"><img src="assets/CLAUDE.webp" alt=""> Abrir Claude ↗</a><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer"><img src="assets/chatgpt.png" alt=""> Abrir ChatGPT ↗</a></div>
           </article>
           <article class="panel export-panel">
             <div class="panel-heading"><span class="panel-icon">⇩</span><div><h3>Centro de exportación</h3><p>Descarga un respaldo o genera el documento para revisión.</p></div></div>
