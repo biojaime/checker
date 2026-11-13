@@ -665,6 +665,12 @@
                   <label for="advisor-email">Correo del asesor *</label>
                   <input class="finput" id="advisor-email" type="email" required placeholder="asesor@institucion.edu">
                 </div>
+                <div class="fgroup">
+                  <label for="advisor-teacher">Docente tutor de la app (opcional)</label>
+                  <select class="fselect" id="advisor-teacher">
+                    <option value="">Asignación manual / sin tutor de la app</option>
+                  </select>
+                </div>
               </div>
               <button class="btn btn-primary btn-lg" type="submit" id="btn-save-advisor">Guardar asignación</button>
             </form>
@@ -805,15 +811,15 @@ document.getElementById("btn-logout").onclick = () => { sessionStorage.clear(); 
 const SUBJECTS = {
   "1": [
     "Matemáticas I","Español I","Educación Física I","Formación Cívica y Ética I",
-    "Historia I","Geografía","Smart Mind I","Informática I","Inglés I","Artes I","Biología"
+    "Historia I","Geografía","Smart Mind I","Informática I","Inglés I","Artes I","Biología","Tutoría I"
   ],
   "2": [
     "Matemáticas II","Español II","Educación Física II","Formación Cívica y Ética II",
-    "Historia II","Smart Mind II","Informática II","Inglés II","Artes II","Física"
+    "Historia II","Smart Mind II","Informática II","Inglés II","Artes II","Física","Tutoría II"
   ],
   "3": [
     "Matemáticas III","Español III","Educación Física III","Formación Cívica y Ética III",
-    "Historia III","Smart Mind III","Informática III","Inglés III","Artes III","Química"
+    "Historia III","Smart Mind III","Informática III","Inglés III","Artes III","Química","Tutoría III"
   ]
 };
 const GRADE_LABELS = {
@@ -936,6 +942,7 @@ async function loadAll() {
     renderAlumnos();
     renderDocentes();
     renderAsesores();
+    renderTutorOptions();
   } catch (e) {
     toast("Error cargando datos: " + e.message, "err");
     console.error(e);
@@ -968,6 +975,21 @@ function renderAsesores() {
     </tr>`).join("");
 }
 
+function renderTutorOptions(selectedId = "") {
+  const select = document.getElementById("advisor-teacher");
+  const tutors = cacheDocentes.filter(teacher => teacher.Rol === "Docente (tutor)");
+  select.innerHTML = `<option value="">Asignación manual / sin tutor de la app</option>` +
+    tutors.map(teacher => `<option value="${h(teacher.id)}">${h(teacher.Nombre || teacher.id)} · ${h(teacher.Correo || "sin correo")}</option>`).join("");
+  select.value = tutors.some(teacher => teacher.id === selectedId) ? selectedId : "";
+}
+
+document.getElementById("advisor-teacher").addEventListener("change", event => {
+  const teacher = cacheDocentes.find(item => item.id === event.target.value);
+  if (!teacher) return;
+  document.getElementById("advisor-name").value = teacher.Nombre || "";
+  document.getElementById("advisor-email").value = teacher.Correo || "";
+});
+
 document.getElementById("advisor-assignments").addEventListener("click", event => {
   const editButton = event.target.closest("[data-advisor-edit]");
   const deleteButton = event.target.closest("[data-advisor-delete]");
@@ -982,13 +1004,26 @@ function editAdvisor(salon) {
   document.getElementById("advisor-group").value = salon.slice(1);
   document.getElementById("advisor-name").value = advisor.Nombre || "";
   document.getElementById("advisor-email").value = advisor.Correo || "";
+  renderTutorOptions(advisor.TutorId || "");
   document.getElementById("advisor-name").focus();
 }
 
 async function deleteAdvisor(salon) {
   if (!confirm(`¿Eliminar la asignación del asesor para ${salon}?`)) return;
   try {
-    await db.collection("Asesores").doc(salon).delete();
+    const advisor = cacheAsesores.find(item => item.id === salon);
+    const batch = db.batch();
+    batch.delete(db.collection("Asesores").doc(salon));
+    if (advisor?.TutorId) {
+      batch.update(db.collection("Usuarios").doc(advisor.TutorId), {
+        SalonesTutor: firebase.firestore.FieldValue.arrayRemove(salon)
+      });
+    }
+    await batch.commit();
+    if (advisor?.TutorId) {
+      const teacher = cacheDocentes.find(item => item.id === advisor.TutorId);
+      if (teacher) teacher.SalonesTutor = (teacher.SalonesTutor || []).filter(room => room !== salon);
+    }
     cacheAsesores = cacheAsesores.filter(item => item.id !== salon);
     renderAsesores();
     toast(`Se eliminó el asesor de ${salon}`, "ok");
@@ -1000,8 +1035,10 @@ async function deleteAdvisor(salon) {
 document.getElementById("advisor-assignment-form").addEventListener("submit", async event => {
   event.preventDefault();
   const salon = `${document.getElementById("advisor-grade").value}${document.getElementById("advisor-group").value}`;
-  const nombre = document.getElementById("advisor-name").value.trim();
-  const correo = document.getElementById("advisor-email").value.trim();
+  const teacherId = document.getElementById("advisor-teacher").value;
+  const teacher = cacheDocentes.find(item => item.id === teacherId);
+  const nombre = teacher ? teacher.Nombre || "" : document.getElementById("advisor-name").value.trim();
+  const correo = teacher ? teacher.Correo || "" : document.getElementById("advisor-email").value.trim();
   const button = document.getElementById("btn-save-advisor");
   if (!nombre || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
     toast("Escribe el nombre del asesor y un correo válido.", "warn");
@@ -1009,13 +1046,38 @@ document.getElementById("advisor-assignment-form").addEventListener("submit", as
   }
   button.disabled = true;
   try {
-    const assignment = { Salon: salon, Nombre: nombre, Correo: correo, Actualizado: new Date().toISOString() };
-    await db.collection("Asesores").doc(salon).set(assignment);
+    const previous = cacheAsesores.find(item => item.id === salon);
+    const assignment = {
+      Salon: salon,
+      Nombre: nombre,
+      Correo: correo,
+      TutorId: teacherId || null,
+      Actualizado: new Date().toISOString()
+    };
+    const batch = db.batch();
+    batch.set(db.collection("Asesores").doc(salon), assignment);
+    if (previous?.TutorId && previous.TutorId !== teacherId) {
+      batch.update(db.collection("Usuarios").doc(previous.TutorId), {
+        SalonesTutor: firebase.firestore.FieldValue.arrayRemove(salon)
+      });
+    }
+    if (teacherId) {
+      batch.update(db.collection("Usuarios").doc(teacherId), {
+        SalonesTutor: firebase.firestore.FieldValue.arrayUnion(salon)
+      });
+    }
+    await batch.commit();
+    if (previous?.TutorId && previous.TutorId !== teacherId) {
+      const previousTeacher = cacheDocentes.find(item => item.id === previous.TutorId);
+      if (previousTeacher) previousTeacher.SalonesTutor = (previousTeacher.SalonesTutor || []).filter(room => room !== salon);
+    }
+    if (teacher) teacher.SalonesTutor = [...new Set([...(teacher.SalonesTutor || []), salon])];
     cacheAsesores = [...cacheAsesores.filter(item => item.id !== salon), { id: salon, ...assignment }];
     renderAsesores();
     toast(`Asesor asignado al salón ${salon}`, "ok");
     document.getElementById("advisor-name").value = "";
     document.getElementById("advisor-email").value = "";
+    document.getElementById("advisor-teacher").value = "";
   } catch (error) {
     toast("No se pudo guardar la asignación: " + error.message, "err");
   } finally {
@@ -1419,11 +1481,73 @@ document.getElementById("btn-mm-save").onclick = async () => {
   btn.disabled = true;
   btn.innerHTML = `<span class="spinner-sm"></span> Guardando…`;
   try {
-    await db.collection("Usuarios").doc(currentTeacherId).update({ Clases: currentClases, ClasesConfig: currentClasesConfig });
     const idx = cacheDocentes.findIndex(d => d.id === currentTeacherId);
+    const teacher = cacheDocentes[idx];
+    const tutoringSubjects = currentClases.filter(clase => /^Tutoría/i.test(clase));
+    const tutorSalons = teacher?.Rol === "Docente (tutor)" && tutoringSubjects.length
+      ? [...new Set(tutoringSubjects.flatMap(clase => {
+        const grade = clase.match(/\((\d)°\)/)?.[1];
+        const groups = currentClasesConfig[clase]?.Grupos || [];
+        return grade ? groups.map(group => `${grade}${group}`) : [];
+      }))]
+      : (teacher?.SalonesTutor || []);
+    const previousTutorSalons = teacher?.Rol === "Docente (tutor)"
+      ? cacheAsesores.filter(item => item.TutorId === currentTeacherId)
+      : [];
+    const removedSalons = previousTutorSalons.filter(item => !tutorSalons.includes(item.id));
+    const batch = db.batch();
+    batch.update(db.collection("Usuarios").doc(currentTeacherId), {
+      Clases: currentClases,
+      ClasesConfig: currentClasesConfig,
+      ...(teacher?.Rol === "Docente (tutor)" ? { SalonesTutor: tutorSalons } : {})
+    });
+    const formerTutorRooms = new Map();
+    if (teacher?.Rol === "Docente (tutor)" && tutoringSubjects.length) {
+      removedSalons.forEach(item => batch.set(db.collection("Asesores").doc(item.id), { TutorId: null }, { merge: true }));
+      tutorSalons.forEach(salon => {
+        const previous = cacheAsesores.find(item => item.id === salon);
+        const update = {
+          Salon: salon,
+          Nombre: teacher.Nombre || previous?.Nombre || "",
+          Correo: teacher.Correo || previous?.Correo || "",
+          TutorId: currentTeacherId,
+          Actualizado: new Date().toISOString()
+        };
+        if (previous?.TutorId && previous.TutorId !== currentTeacherId) {
+          const rooms = formerTutorRooms.get(previous.TutorId) || [];
+          formerTutorRooms.set(previous.TutorId, [...rooms, salon]);
+        }
+        batch.set(db.collection("Asesores").doc(salon), update, { merge: true });
+      });
+      formerTutorRooms.forEach((rooms, teacherId) => {
+        batch.update(db.collection("Usuarios").doc(teacherId), {
+          SalonesTutor: firebase.firestore.FieldValue.arrayRemove(...rooms)
+        });
+      });
+    }
+    await batch.commit();
     if (idx !== -1) {
       cacheDocentes[idx].Clases = [...currentClases];
       cacheDocentes[idx].ClasesConfig = { ...currentClasesConfig };
+      if (teacher?.Rol === "Docente (tutor)") cacheDocentes[idx].SalonesTutor = tutorSalons;
+    }
+    formerTutorRooms.forEach((rooms, teacherId) => {
+      const formerTeacher = cacheDocentes.find(item => item.id === teacherId);
+      if (formerTeacher) formerTeacher.SalonesTutor = (formerTeacher.SalonesTutor || []).filter(room => !rooms.includes(room));
+    });
+    if (teacher?.Rol === "Docente (tutor)" && tutoringSubjects.length) {
+      const refreshed = new Map(cacheAsesores.map(item => [item.id, item]));
+      tutorSalons.forEach(salon => refreshed.set(salon, {
+        ...(refreshed.get(salon) || {}),
+        id: salon,
+        Salon: salon,
+        Nombre: teacher.Nombre || "",
+        Correo: teacher.Correo || "",
+        TutorId: currentTeacherId
+      }));
+      removedSalons.forEach(item => refreshed.set(item.id, { ...item, TutorId: null }));
+      cacheAsesores = [...refreshed.values()];
+      renderAsesores();
     }
     toast("Materias guardadas correctamente", "ok");
     closeModal("modal-materias");

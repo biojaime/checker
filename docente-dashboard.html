@@ -770,6 +770,14 @@
         </div>
       </button>
 
+      <button class="nav-card" data-panel="tutoria" id="nav-tutoria">
+        <div class="nav-icon indigo">💬</div>
+        <div class="nav-card-text">
+          <span class="nav-card-title">Tutoría y mensajes</span>
+          <span class="nav-card-sub">Seguimiento y comunicación interna</span>
+        </div>
+      </button>
+
       <button class="nav-card" data-panel="alumnos">
         <div class="nav-icon red">🔍</div>
         <div class="nav-card-text">
@@ -1166,6 +1174,46 @@
         </div>
       </div>
 
+      <div class="panel" id="panel-tutoria">
+        <div class="card" id="tutor-progress-card" hidden>
+          <div class="card-header">
+            <div><h2>📈 Progreso de tutoría</h2><p style="margin-top:4px;color:var(--muted);font-size:.8rem;">Consulta materias, parciales y detalles de calificación de tus salones.</p></div>
+          </div>
+          <div style="padding:1.2rem;">
+            <div class="advisor-report-fields">
+              <div class="fgroup"><label for="tutor-salon">Salón tutorado</label><select class="fselect" id="tutor-salon"><option value="">— Selecciona salón —</option></select></div>
+              <div class="fgroup"><label for="tutor-student">Alumno</label><select class="fselect" id="tutor-student" disabled><option value="">— Selecciona alumno —</option></select></div>
+              <div class="fgroup"><label for="tutor-subject">Materia</label><select class="fselect" id="tutor-subject" disabled><option value="">— Selecciona materia —</option></select></div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:12px;">
+              <div class="fgroup" style="flex:1;min-width:220px;margin:0;">
+                <label for="tutor-parent-email">Correo de madre, padre o tutor</label>
+                <input class="finput" id="tutor-parent-email" type="email" placeholder="familia@ejemplo.com">
+              </div>
+              <button class="btn btn-gray" id="btn-save-tutor-parent" type="button" disabled>Guardar correo familiar</button>
+            </div>
+            <div id="tutor-progress-details" style="margin-top:16px;"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-header">
+            <div><h2>💬 Mensajes con tutoría</h2><p style="margin-top:4px;color:var(--muted);font-size:.8rem;">Los mensajes vencen a los 31 días; la app depura los caducados al consultarlos.</p></div>
+          </div>
+          <div style="padding:1.2rem;">
+            <div class="fgroup" style="max-width:380px;">
+              <label for="communication-room">Salón</label>
+              <select class="fselect" id="communication-room"><option value="">— Selecciona salón —</option></select>
+            </div>
+            <div id="communication-thread" aria-live="polite" style="display:grid;gap:8px;max-height:420px;overflow:auto;margin:12px 0;"></div>
+            <form id="communication-form" style="display:grid;gap:8px;">
+              <label for="communication-text">Mensaje o seguimiento</label>
+              <textarea class="finput" id="communication-text" rows="3" maxlength="3000" required placeholder="Escribe un mensaje para el tutor o el equipo docente del salón."></textarea>
+              <button class="btn btn-primary btn-lg" type="submit" id="btn-send-communication">Enviar mensaje</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
       <!-- ══ PANEL: ALUMNOS ══ -->
       <div class="panel" id="panel-alumnos">
         <div class="card">
@@ -1505,6 +1553,11 @@ let calPartialComments = {};
 let teacherProfileLoaded = false;
 let teacherAppointmentUnsubscribe = null;
 let seenAppointmentIds = null;
+let tutorStudents = [];
+let tutorSubjectTeachers = [];
+let tutorProgressText = "";
+let communicationUnsubscribe = null;
+let communicationGeneration = 0;
 let teacherAppointmentRequests = [];
 let classroomCurrentKey = "";
 let classroomCurrentClass = "";
@@ -1976,6 +2029,7 @@ const panelMeta = {
   boletas:         { title:"Boletas",                sub:"Consulta e impresión",           chip:"🧾 Boletas" },
   momentos:        { title:"Administrar momentos",   sub:"Organiza parciales y redondeos",   chip:"🔢 Momentos" },
   "reporte-cita":  { title:"Generar reporte o cita", sub:"Contacta al asesor asignado",    chip:"✉️ Reporte / cita" },
+  "tutoria":       { title:"Tutoría y mensajes",     sub:"Progreso académico y comunicación interna", chip:"💬 Tutoría" },
   alumnos:         { title:"Consulta de Alumnos",    sub:"Búsqueda por matrícula o nombre", chip:"🔍 Alumnos" }
 };
 
@@ -2106,6 +2160,7 @@ async function loadDocente() {
     listenForAppointmentRequests();
     await loadParciales();
     await renderClassCards(clases);
+    await loadTutorWorkspace();
   } catch(e) {
     toast("Error cargando perfil: " + e.message, "err");
     console.error(e);
@@ -2133,6 +2188,371 @@ function populateClassSelects(clases) {
     });
   });
   renderMomentConfiguration();
+}
+
+async function loadTutorWorkspace() {
+  const isTutor = docenteData.Rol === "Docente (tutor)";
+  document.getElementById("tutor-progress-card").hidden = !isTutor;
+  const salonSelect = document.getElementById("communication-room");
+  salonSelect.innerHTML = `<option value="">Cargando salones…</option>`;
+  try {
+    try {
+      await purgeExpiredTutorMessages();
+    } catch (error) {
+      toast("No se pudieron depurar mensajes vencidos: " + error.message, "err");
+    }
+    const snapshot = await db.collection("Asesores").get();
+    const assignments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let salons = [];
+    if (isTutor) {
+      salons = [...new Set([...(docenteData.SalonesTutor || []), ...assignments.filter(item => item.TutorId === DOCENTE_ID).map(item => item.id)])];
+      document.getElementById("tutor-salon").innerHTML = `<option value="">— Selecciona salón —</option>` +
+        salons.sort((a, b) => a.localeCompare(b, "es", { numeric: true })).map(salon => `<option value="${h(salon)}">${h(salon)}</option>`).join("");
+    } else {
+      const teacherRooms = new Set();
+      (docenteData.Clases || []).forEach(clase => {
+        const grade = String(clase).match(/\((\d)°\)/)?.[1];
+        if (!grade) return;
+        const configuredGroups = docenteData.ClasesConfig?.[clase]?.Grupos || [];
+        assignments.forEach(item => {
+          if (item.TutorId && item.id.charAt(0) === grade &&
+              (!configuredGroups.length || configuredGroups.includes(item.id.slice(1)))) {
+            teacherRooms.add(item.id);
+          }
+        });
+      });
+      salons = [...teacherRooms];
+    }
+    salonSelect.innerHTML = `<option value="">— Selecciona salón —</option>` +
+      salons.sort((a, b) => a.localeCompare(b, "es", { numeric: true })).map(salon => `<option value="${h(salon)}">${h(salon)}</option>`).join("");
+    if (salons.length === 1) {
+      salonSelect.value = salons[0];
+      await loadCommunicationMessages(salons[0]);
+    } else {
+      document.getElementById("communication-thread").innerHTML =
+        `<p style="color:var(--muted);">Selecciona un salón para consultar sus mensajes.</p>`;
+    }
+    if (isTutor && salons.length === 0) {
+      document.getElementById("tutor-progress-details").innerHTML =
+        `<p style="color:var(--muted);">Aún no tienes salones asignados. Solicita al administrador que te vincule como docente tutor.</p>`;
+    }
+  } catch (error) {
+    salonSelect.innerHTML = `<option value="">Error al cargar salones</option>`;
+    toast("No se pudieron cargar los salones de tutoría: " + error.message, "err");
+  }
+}
+
+document.getElementById("communication-room").addEventListener("change", event => {
+  loadCommunicationMessages(event.target.value);
+});
+
+function loadCommunicationMessages(salon) {
+  communicationUnsubscribe?.();
+  communicationUnsubscribe = null;
+  const generation = ++communicationGeneration;
+  const container = document.getElementById("communication-thread");
+  if (!salon) {
+    container.innerHTML = `<p style="color:var(--muted);">Selecciona un salón.</p>`;
+    return;
+  }
+  container.textContent = "Cargando mensajes…";
+  communicationUnsubscribe = db.collection("MensajesTutor").where("Salon", "==", salon).onSnapshot(async snapshot => {
+    try {
+    const now = Date.now();
+    const expired = snapshot.docs.filter(doc => {
+      const value = doc.data().ExpiraEn;
+      const expiration = value?.toDate ? value.toDate().getTime() : Date.parse(value || "");
+      return Number.isFinite(expiration) && expiration <= now;
+    });
+    for (let index = 0; index < expired.length; index += 400) {
+      const batch = db.batch();
+      expired.slice(index, index + 400).forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
+    if (generation !== communicationGeneration) return;
+    const isTutor = docenteData.Rol === "Docente (tutor)";
+    const messages = snapshot.docs
+      .filter(doc => !expired.some(item => item.id === doc.id))
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(message => isTutor
+        ? message.TutorId === DOCENTE_ID
+        : message.DocenteId === DOCENTE_ID || message.RemitenteRol === "Docente (tutor)")
+      .sort((a, b) => String(a.CreadoEn || "").localeCompare(String(b.CreadoEn || "")));
+    if (!messages.length) {
+      container.innerHTML = `<p style="color:var(--muted);">No hay mensajes recientes en este salón.</p>`;
+      return;
+    }
+    container.innerHTML = messages.map(message => {
+      const report = message.Tipo === "reporte";
+      const date = new Date(message.CreadoEn);
+      return `<article style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface,#fff);">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <strong>${h(message.RemitenteNombre || "Usuario")} · ${report ? "Reporte" : "Mensaje"}</strong>
+          <small style="color:var(--muted);">${Number.isNaN(date.getTime()) ? "" : h(date.toLocaleString("es-MX"))}</small>
+        </div>
+        ${message.Asunto ? `<strong style="display:block;margin-top:6px;">${h(message.Asunto)}</strong>` : ""}
+        <p style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:6px;">${h(message.Mensaje || "")}</p>
+        ${report && isTutor ? `<button class="btn btn-gray" type="button" data-resend-report="${h(message.id)}">Reenviar reporte a familia</button>` : ""}
+      </article>`;
+    }).join("");
+    container.querySelectorAll("[data-resend-report]").forEach(button => {
+      button.addEventListener("click", () => resendTutorReport(button.dataset.resendReport, messages));
+    });
+    } catch (error) {
+      if (generation !== communicationGeneration) return;
+      container.innerHTML = `<p style="color:var(--red);">No se pudieron cargar los mensajes.</p>`;
+      toast("No se pudieron cargar los mensajes: " + error.message, "err");
+    }
+  }, error => {
+    container.innerHTML = `<p style="color:var(--red);">No se pudieron cargar los mensajes.</p>`;
+    toast("No se pudieron cargar los mensajes: " + error.message, "err");
+  });
+}
+
+async function saveTutorMessage(message) {
+  const created = new Date();
+  await db.collection("MensajesTutor").add({
+    ...message,
+    CreadoEn: created.toISOString(),
+    ExpiraEn: firebase.firestore.Timestamp.fromDate(new Date(created.getTime() + 31 * 24 * 60 * 60 * 1000))
+  });
+}
+
+async function purgeExpiredTutorMessages() {
+  const field = docenteData.Rol === "Docente (tutor)" ? "TutorId" : "DocenteId";
+  const snapshot = await db.collection("MensajesTutor").where(field, "==", DOCENTE_ID).get();
+  const now = Date.now();
+  const expired = snapshot.docs.filter(doc => {
+    const value = doc.data().ExpiraEn;
+    const expiration = value?.toDate ? value.toDate().getTime() : Date.parse(value || "");
+    return Number.isFinite(expiration) && expiration <= now;
+  });
+  for (let index = 0; index < expired.length; index += 400) {
+    const batch = db.batch();
+    expired.slice(index, index + 400).forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+  }
+}
+
+document.getElementById("communication-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const salon = document.getElementById("communication-room").value;
+  const text = document.getElementById("communication-text").value.trim();
+  if (!salon || !text) {
+    toast("Selecciona un salón y escribe el mensaje.", "warn");
+    return;
+  }
+  const button = document.getElementById("btn-send-communication");
+  button.disabled = true;
+  try {
+    const assignment = await db.collection("Asesores").doc(salon).get();
+    if (!assignment.exists || !assignment.data().TutorId) {
+      throw new Error(`El salón ${salon} no tiene un docente tutor vinculado en administración.`);
+    }
+    const isTutor = docenteData.Rol === "Docente (tutor)";
+    await saveTutorMessage({
+      Salon: salon,
+      TutorId: assignment.data().TutorId,
+      DocenteId: isTutor ? "" : DOCENTE_ID,
+      RemitenteId: DOCENTE_ID,
+      RemitenteNombre: docenteData.Nombre || "Docente",
+      RemitenteRol: docenteData.Rol || "Docente",
+      Tipo: "mensaje",
+      Mensaje: text
+    });
+    document.getElementById("communication-text").value = "";
+    await loadCommunicationMessages(salon);
+    toast("Mensaje enviado.", "ok");
+  } catch (error) {
+    toast("No se pudo enviar el mensaje: " + error.message, "err");
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById("tutor-salon").addEventListener("change", loadTutorStudents);
+document.getElementById("tutor-student").addEventListener("change", loadTutorSubjects);
+document.getElementById("tutor-subject").addEventListener("change", loadTutorProgressDetails);
+
+async function loadTutorStudents() {
+  const salon = document.getElementById("tutor-salon").value;
+  const studentSelect = document.getElementById("tutor-student");
+  studentSelect.innerHTML = `<option value="">Cargando alumnos…</option>`;
+  studentSelect.disabled = true;
+  document.getElementById("tutor-subject").innerHTML = `<option value="">— Selecciona materia —</option>`;
+  document.getElementById("tutor-subject").disabled = true;
+  document.getElementById("btn-save-tutor-parent").disabled = true;
+  document.getElementById("tutor-progress-details").innerHTML = "";
+  document.getElementById("tutor-parent-email").value = "";
+  if (!salon) {
+    studentSelect.innerHTML = `<option value="">— Selecciona alumno —</option>`;
+    return;
+  }
+  try {
+    const snapshot = await db.collection("Usuarios")
+      .where("Rol", "==", "Alumno")
+      .where("Grado", "==", salon.charAt(0))
+      .where("Grupo", "==", salon.slice(1))
+      .get();
+    tutorStudents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => nombreListaAlumno(a).localeCompare(nombreListaAlumno(b), "es", { sensitivity: "base" }));
+    studentSelect.innerHTML = `<option value="">— Selecciona alumno —</option>` +
+      tutorStudents.map(student => `<option value="${h(student.id)}">${h(nombreListaAlumno(student))}</option>`).join("");
+    studentSelect.disabled = tutorStudents.length === 0;
+  } catch (error) {
+    studentSelect.innerHTML = `<option value="">Error al cargar alumnos</option>`;
+    toast("No se pudieron cargar los alumnos del salón: " + error.message, "err");
+  }
+}
+
+async function loadTutorSubjects() {
+  const student = tutorStudents.find(item => item.id === document.getElementById("tutor-student").value);
+  const subjectSelect = document.getElementById("tutor-subject");
+  subjectSelect.innerHTML = `<option value="">Cargando materias…</option>`;
+  subjectSelect.disabled = true;
+  document.getElementById("tutor-progress-details").innerHTML = "";
+  document.getElementById("tutor-parent-email").value = student?.CorreoPadre || student?.CorreoTutor || "";
+  document.getElementById("btn-save-tutor-parent").disabled = !student;
+  if (!student) {
+    subjectSelect.innerHTML = `<option value="">— Selecciona materia —</option>`;
+    return;
+  }
+  try {
+    const [teachers, tutors] = await Promise.all([
+      db.collection("Usuarios").where("Rol", "==", "Docente").get(),
+      db.collection("Usuarios").where("Rol", "==", "Docente (tutor)").get()
+    ]);
+    const profiles = [...teachers.docs, ...tutors.docs].map(doc => ({ id: doc.id, ...doc.data() }));
+    const grade = String(student.Grado || "").match(/\d/)?.[0];
+    const group = String(student.Grupo || "").toUpperCase();
+    tutorSubjectTeachers = profiles.flatMap(profile => (profile.Clases || [])
+      .filter(clase => {
+        const match = String(clase).match(/\((\d)°\)/);
+        const configuredGroups = profile.ClasesConfig?.[clase]?.Grupos || [];
+        return match && match[1] === grade && !/^Tutoría/i.test(clase) &&
+          (!configuredGroups.length || configuredGroups.includes(group));
+      })
+      .map(clase => ({ id: profile.id, nombre: profile.Nombre || "Docente", clase })));
+    const subjects = [...new Set(tutorSubjectTeachers.map(item => item.clase))]
+      .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+    subjectSelect.innerHTML = `<option value="">— Selecciona materia —</option>` +
+      subjects.map(clase => `<option value="${h(clase)}">${h(clase)}</option>`).join("");
+    subjectSelect.disabled = subjects.length === 0;
+    if (!subjects.length) document.getElementById("tutor-progress-details").innerHTML =
+      `<p style="color:var(--muted);">No hay materias asignadas a docentes para este alumno.</p>`;
+  } catch (error) {
+    subjectSelect.innerHTML = `<option value="">Error al cargar materias</option>`;
+    toast("No se pudieron cargar las materias del alumno: " + error.message, "err");
+  }
+}
+
+async function loadTutorProgressDetails() {
+  const student = tutorStudents.find(item => item.id === document.getElementById("tutor-student").value);
+  const clase = document.getElementById("tutor-subject").value;
+  const container = document.getElementById("tutor-progress-details");
+  if (!student || !clase) {
+    container.innerHTML = "";
+    return;
+  }
+  container.textContent = "Cargando parciales y calificaciones…";
+  tutorProgressText = "";
+  try {
+    const profiles = tutorSubjectTeachers.filter(item => item.clase === clase);
+    const details = [];
+    for (const profile of profiles) {
+      const [partialsSnapshot, gradesSnapshot] = await Promise.all([
+        db.collection("Usuarios").doc(profile.id).collection("Parciales").where("Clase", "==", clase).get(),
+        db.collection("Calificaciones").where("DocenteId", "==", profile.id).get()
+      ]);
+      const partials = partialsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => Number(a.Numero) - Number(b.Numero));
+      const records = gradesSnapshot.docs.map(doc => doc.data())
+        .filter(record => String(record.AlumnoMatricula) === String(student.Matricula || student.id) && record.Clase === clase);
+      partials.forEach(partial => {
+        const partialRecords = records.filter(record => record.ParcialId === partial.id);
+        const criteria = partial.Criterios || [];
+        let capturedWeight = 0;
+        let weightedTotal = 0;
+        const rows = criteria.map(criterion => {
+          const record = partialRecords.find(item => item.Criterio === criterion.nombre);
+          const raw = record?.Calificacion;
+          const grade = raw === undefined || raw === null || raw === "" ? null : Number(raw);
+          const weight = Number(criterion.porcentaje) || 0;
+          if (grade !== null && Number.isFinite(grade)) {
+            capturedWeight += weight;
+            weightedTotal += grade * weight / 100;
+          }
+          return { name: criterion.nombre, weight, grade: grade !== null && Number.isFinite(grade) ? grade : null, note: record?.Observaciones || "" };
+        });
+        const label = getPeriodLabel(partial);
+        details.push({ label, teacher: profile.nombre, grade: weightedTotal, capturedWeight, rows });
+      });
+    }
+    details.sort((a, b) => a.label.localeCompare(b.label, "es", { numeric: true }));
+    const studentName = nombreListaAlumno(student);
+    tutorProgressText = details.map(detail =>
+      `${detail.label} · ${clase} · ${detail.capturedWeight ? `${detail.grade.toFixed(2)} / 10 (${detail.capturedWeight}% capturado)` : "Sin calificaciones"}\n` +
+      detail.rows.map(row => `- ${row.name}: ${row.grade === null ? "Pendiente" : `${row.grade.toFixed(1)} / 10`}${row.note ? ` · ${row.note}` : ""}`).join("\n")
+    ).join("\n\n");
+    container.innerHTML = details.length ? details.map(detail => `
+      <section style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:10px;">
+        <h3>${h(detail.label)} · ${h(clase)}</h3>
+        <p style="margin:5px 0 10px;color:var(--muted);font-size:.82rem;">Docente: ${h(detail.teacher)} · ${detail.capturedWeight ? `${detail.grade.toFixed(2)} / 10 · ${detail.capturedWeight}% capturado` : "Sin calificaciones capturadas"}</p>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Criterio</th><th>Peso</th><th>Calificación</th><th>Observación</th></tr></thead><tbody>
+          ${detail.rows.map(row => `<tr><td>${h(row.name)}</td><td>${row.weight}%</td><td>${row.grade === null ? "Pendiente" : `${row.grade.toFixed(1)} / 10`}</td><td>${h(row.note || "—")}</td></tr>`).join("") || `<tr><td colspan="4">No hay criterios configurados.</td></tr>`}
+        </tbody></table></div>
+      </section>`).join("") : `<p style="color:var(--muted);">No hay parciales configurados para esta materia.</p>`;
+    container.dataset.studentName = studentName;
+  } catch (error) {
+    container.innerHTML = `<p style="color:var(--red);">No se pudo consultar el progreso.</p>`;
+    toast("No se pudo cargar el progreso del alumno: " + error.message, "err");
+  }
+}
+
+document.getElementById("btn-save-tutor-parent").addEventListener("click", async event => {
+  const student = tutorStudents.find(item => item.id === document.getElementById("tutor-student").value);
+  const email = document.getElementById("tutor-parent-email").value.trim();
+  if (!student || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    toast("Escribe un correo familiar válido.", "warn");
+    return;
+  }
+  event.currentTarget.disabled = true;
+  try {
+    await db.collection("Usuarios").doc(student.id).update({ CorreoPadre: email });
+    student.CorreoPadre = email;
+    toast("Correo familiar vinculado al alumno.", "ok");
+  } catch (error) {
+    toast("No se pudo guardar el correo familiar: " + error.message, "err");
+  } finally {
+    event.currentTarget.disabled = false;
+  }
+});
+
+async function resendTutorReport(messageId, messages) {
+  const message = messages.find(item => item.id === messageId);
+  if (!message?.AlumnoId) {
+    toast("Este aviso no está vinculado a un alumno y no se puede reenviar.", "warn");
+    return;
+  }
+  try {
+    const studentSnapshot = await db.collection("Usuarios").doc(message.AlumnoId).get();
+    const email = studentSnapshot.exists
+      ? String(studentSnapshot.data().CorreoPadre || studentSnapshot.data().CorreoTutor || "").trim()
+      : "";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      document.getElementById("tutor-salon").value = message.Salon;
+      await loadTutorStudents();
+      document.getElementById("tutor-student").value = message.AlumnoId;
+      await loadTutorSubjects();
+      document.getElementById("tutor-parent-email").focus();
+      toast("Vincula primero el correo familiar del alumno en Progreso de tutoría.", "warn");
+      return;
+    }
+    const subject = message.Asunto || `Reporte de ${message.AlumnoNombre || "alumno"}`;
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message.Mensaje || "")}`;
+  } catch (error) {
+    toast("No se pudo preparar el reenvío: " + error.message, "err");
+  }
 }
 
 function getMomentConfiguration(clase) {
@@ -5484,7 +5904,30 @@ document.getElementById("advisor-report-form").addEventListener("submit", async 
       try {
         if (tokenResponse.error || !tokenResponse.access_token) throw new Error("Google no autorizó el envío.");
         await sendGmailMessage(tokenResponse.access_token, message);
-        toast(`Reporte enviado al asesor ${assignment.Nombre} (${assignment.Correo}).`, "ok");
+        if (assignment.TutorId) {
+          try {
+            await saveTutorMessage({
+              Salon: `${student.Grado || ""}${student.Grupo || ""}`,
+              TutorId: assignment.TutorId,
+              DocenteId: DOCENTE_ID,
+              RemitenteId: DOCENTE_ID,
+              RemitenteNombre: docenteData.Nombre || "Docente",
+              RemitenteRol: docenteData.Rol || "Docente",
+              Tipo: "reporte",
+              AlumnoId: student.id,
+              AlumnoNombre: nombreListaAlumno(student),
+              Asunto: subject,
+              Mensaje: advisorReportEditorDirty
+                ? document.getElementById("advisor-report-editor").innerText
+                : preview
+            });
+            toast(`Reporte enviado por correo y agregado a los mensajes de tutoría de ${assignment.Nombre}.`, "ok");
+          } catch (error) {
+            toast(`El correo se envió, pero no se pudo guardar la copia en la app: ${error.message}`, "err");
+          }
+        } else {
+          toast(`Reporte enviado al asesor ${assignment.Nombre} (${assignment.Correo}). Para recibir la copia en la app, vincula un docente tutor al salón.`, "warn");
+        }
       } catch (error) {
         toast("No se pudo enviar el reporte: " + error.message, "err");
       } finally {
